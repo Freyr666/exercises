@@ -1,0 +1,4 @@
+S **
+B _build/**
+B +threads
+PKG batteries react lwt
