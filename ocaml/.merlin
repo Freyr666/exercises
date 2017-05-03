@@ -1,4 +1,5 @@
 S **
 B _build/**
 B +threads
-PKG batteries react lwt
+PKG batteries containers react lwt uwt
+EXT lwt
