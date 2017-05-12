@@ -1152,7 +1152,12 @@ let ans1 = run [] p1
  *    function to glue together two programs.
  *)
 let rec compile (e:exp) : program =
-failwith "compile unimplemented"  
+  match e with
+  | Var s -> [IPushV s]
+  | Const i -> [IPushC i]
+  | Neg e -> (compile e) @ [INeg]
+  | Add (e1,e2) -> (compile e1) @ (compile e2) @ [IAdd]
+  | Mult (e1,e2) -> (compile e1) @ (compile e2) @ [IMul]
 
 
 

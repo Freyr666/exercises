@@ -167,7 +167,9 @@ let part4_tests : suite = [
   ]);
  
   GradedTest ("Problem5", 5, [
-  
+    ("compile1", assert_eqf (fun () -> run ctxt1 (compile e1)) 6l);
+    ("compile2", assert_eqf (fun () -> run ctxt1 (compile e2)) 4l);
+    ("compile3", (fun () -> try ignore (run ctxt1 (compile e3)); failwith "bad interpret" with Not_found -> ()));
   ]);
 ]
 
