@@ -188,3 +188,61 @@ Qed.
 (* TODO *)
 
  
+(* Little Gauss' sum proof *)
+
+Fixpoint row_sum (n : nat) : nat :=
+  match n with
+  | O => O
+  | S n' => n + (row_sum n')
+  end.
+
+Compute (row_sum 10).
+
+Lemma sub_0 :  forall n : nat, n - 0 = n.
+Proof.
+  intros.
+  induction n as [| n' IH ].
+  - reflexivity.
+  - simpl. reflexivity.
+Qed.
+
+Lemma add_0 : forall n : nat, n + 0 = n.
+Proof.
+  intros.
+  induction n as [| n' IH ].
+  - reflexivity.
+  - simpl. rewrite IH. reflexivity.
+Qed.
+
+Lemma s_n_add_m : forall n m : nat, S(n + m) = S n + m.
+Proof. intros. reflexivity. Qed.
+
+Lemma double_n : forall n : nat, n + n = 2 * n.
+Proof. intros.
+       induction n as [| n' IH ].
+       - reflexivity.
+       - simpl. rewrite add_0. reflexivity.
+Qed.
+
+Lemma mult_s : forall n m : nat, n * S m = n * m + n.
+Proof. intros.
+       assert (SN : S m = m + 1).
+       { induction m as [| m' IH].
+         - reflexivity.
+         - simpl. rewrite IH. reflexivity.}
+         rewrite  SN. rewrite mult_comm. rewrite mult_plus_distr_r.
+       simpl. rewrite mult_comm. rewrite add_0.
+       reflexivity.
+Qed.
+
+Lemma mult_minus_distr_r : forall n m p : nat,
+  p * (n - m) = (p * n) - (p * m).
+Proof.
+  intros.
+  induction m as [| m' IH ].
+  - rewrite sub_0. rewrite mult_0_r. rewrite sub_0. reflexivity.
+  - rewrite mult_s.
+
+Theorem row_sum_short :
+  forall n : nat, 2 * (row_sum n) = n * (n - 1).
+
