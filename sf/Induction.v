@@ -131,13 +131,16 @@ Proof.
   - simpl. reflexivity.
 Qed.
 
+(*
 Theorem plus_ble_compat_l : forall n m p : nat,
   leb n m = true -> leb (p + n) (p + m) = true.
 Proof.
   intros.
   induction p as [| p' IH ].
   - simpl. rewrite -> H. reflexivity.
-  - simpl. 
+  - simpl.
+Qed.
+*)
 
 Theorem S_nbeq_0 : forall n:nat,
   beq_nat (S n) 0 = false.
@@ -189,7 +192,7 @@ Qed.
 
  
 (* Little Gauss' sum proof *)
-
+(*
 Fixpoint row_sum (n : nat) : nat :=
   match n with
   | O => O
@@ -229,7 +232,7 @@ Proof. intros.
        assert (SN : S m = m + 1).
        { induction m as [| m' IH].
          - reflexivity.
-         - simpl. rewrite IH. reflexivity.}
+         - simpl. rewrite IH. reflexivity. }
          rewrite  SN. rewrite mult_comm. rewrite mult_plus_distr_r.
        simpl. rewrite mult_comm. rewrite add_0.
        reflexivity.
@@ -246,3 +249,4 @@ Proof.
 Theorem row_sum_short :
   forall n : nat, 2 * (row_sum n) = n * (n - 1).
 
+*)
