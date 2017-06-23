@@ -206,3 +206,210 @@ reflexivity. Qed.
 Example test_member2: member 2 [1;4;1] = false.
 reflexivity. Qed.
 
+Fixpoint remove_one (v:nat) (s:bag) : bag :=
+  match s with
+  | nil => nil
+  | h::tl =>
+    match (beq_nat h v) with
+    | true  => tl
+    | false => h::(remove_one v tl)
+    end
+  end.
+
+Example test_remove_one1:
+  count 5 (remove_one 5 [2;1;5;4;1]) = 0.
+reflexivity. Qed.
+
+Example test_remove_one2:
+  count 5 (remove_one 5 [2;1;4;1]) = 0.
+reflexivity. Qed.
+
+Example test_remove_one3:
+  count 4 (remove_one 5 [2;1;4;5;1;4]) = 2.
+reflexivity. Qed.
+
+Example test_remove_one4:
+  count 5 (remove_one 5 [2;1;5;4;5;1;4]) = 1.
+reflexivity. Qed.
+
+Fixpoint remove_all (v:nat) (s:bag) : bag :=
+  match s with
+  | nil => nil
+  | h::tl =>
+    match (beq_nat h v) with
+    | true  => (remove_all v tl)
+    | false => h::(remove_all v tl)
+    end
+  end.
+
+Example test_remove_all1: count 5 (remove_all 5 [2;1;5;4;1]) = 0.
+reflexivity. Qed.
+Example test_remove_all2: count 5 (remove_all 5 [2;1;4;1]) = 0.
+reflexivity. Qed.
+Example test_remove_all3: count 4 (remove_all 5 [2;1;4;5;1;4]) = 2.
+reflexivity. Qed.
+Example test_remove_all4: count 5 (remove_all 5 [2;1;5;4;5;1;4;5;1;4]) = 0.
+reflexivity. Qed.
+
+Fixpoint subset (s1:bag) (s2:bag) : bool :=
+  match s1 with
+  | nil     => true
+  | h1::tl1 =>
+    match (member h1 s2) with
+    | true  => subset tl1 (remove_one h1 s2)
+    | false => false
+    end
+  end.
+                                      
+Example test_subset1: subset [1;2] [2;1;4;1] = true.
+reflexivity. Qed.
+Example test_subset2: subset [1;2;2] [2;1;4;1] = false.
+reflexivity. Qed.
+
+Theorem nil_app : forall l:natlist,
+    [] ++ l = l.
+Proof. reflexivity. Qed.
+
+Theorem tl_length_pred : forall l:natlist,
+  pred (length l) = length (tl l).
+Proof.
+  intros l. destruct l as [| n l'].
+  - (* l = nil *)
+    reflexivity.
+  - (* l = cons n l' *)
+    reflexivity. Qed.
+
+Theorem app_assoc : forall l1 l2 l3 : natlist,
+  (l1 ++ l2) ++ l3 = l1 ++ (l2 ++ l3).
+Proof.
+  intros l1 l2 l3. induction l1 as [| n l1' IHl1'].
+  - (* l1 = nil *)
+    reflexivity.
+  - (* l1 = cons n l1' *)
+    simpl. rewrite -> IHl1'. reflexivity. Qed.
+
+Fixpoint rev (l:natlist) : natlist :=
+  match l with
+  | nil => nil
+  | h :: t => rev t ++ [h]
+  end.
+
+Example test_rev1: rev [1;2;3] = [3;2;1].
+Proof. reflexivity. Qed.
+Example test_rev2: rev nil = nil.
+Proof. reflexivity. Qed.
+
+Theorem app_length : forall l1 l2 : natlist,
+  length (l1 ++ l2) = (length l1) + (length l2).
+Proof.
+  (* WORKED IN CLASS *)
+  intros l1 l2. induction l1 as [| n l1' IHl1'].
+  - (* l1 = nil *)
+    reflexivity.
+  - (* l1 = cons *)
+    simpl. rewrite -> IHl1'. reflexivity. Qed.
+
+Theorem rev_length : forall l : natlist,
+  length (rev l) = length l.
+Proof.
+  intros. induction l as [| n l' IH ].
+  (* l = nil *)
+  - reflexivity.
+  (* l = n::l' *)
+  - simpl.
+    rewrite app_length, plus_comm.
+    rewrite IH.
+    reflexivity.
+Qed.
+
+
+    
+Theorem app_nil_r : forall l : natlist,
+  l ++ [] = l.
+Proof.
+  intros.
+  induction l as [| n l' IH].
+  (* l = [ ] *)
+  - reflexivity.
+  (* l = n::l' *)
+  - simpl. rewrite IH. reflexivity.
+Qed.
+  
+Theorem rev_app_distr: forall l1 l2 : natlist,
+  rev (l1 ++ l2) = rev l2 ++ rev l1.
+Proof.
+  intros.
+  induction l1 as [| n1 l'1 IH ].
+  - simpl. rewrite app_nil_r. reflexivity.
+  - simpl. rewrite IH, app_assoc. reflexivity.
+Qed.
+  
+Theorem rev_involutive : forall l : natlist,
+  rev (rev l) = l.
+Proof.
+  intros.
+  induction l as [| n l' IH ].
+  - reflexivity.
+  - simpl. rewrite rev_app_distr. simpl. rewrite IH. reflexivity.
+Qed.
+
+Theorem app_assoc4 : forall l1 l2 l3 l4 : natlist,
+  l1 ++ (l2 ++ (l3 ++ l4)) = ((l1 ++ l2) ++ l3) ++ l4.
+Proof.
+  intros.
+  induction l1 as [| n1 l'1 IH ].
+  - simpl. rewrite app_assoc. reflexivity.
+  - simpl. rewrite IH. reflexivity.
+Qed.
+
+Lemma nonzeros_app : forall l1 l2 : natlist,
+  nonzeros (l1 ++ l2) = (nonzeros l1) ++ (nonzeros l2).
+Proof.
+  intros.
+  induction l1 as [| n1 l'1 IH ].
+  - reflexivity.
+  - destruct n1.
+    + simpl. rewrite IH. reflexivity.
+    + simpl. rewrite IH. reflexivity.
+Qed.
+
+Inductive nlprod : Type :=
+| nlpair : natlist -> natlist -> nlprod.
+
+Fixpoint beq_natlist (l1 l2 : natlist) : bool :=
+  match (nlpair l1 l2) with
+  | (nlpair nil nil) => true
+  | (nlpair (h1::tl1) (h2::tl2)) => (beq_nat h1 h2) && (beq_natlist tl1 tl2)
+  | _ => false
+  end.
+
+Example test_beq_natlist1 :
+  (beq_natlist nil nil = true).
+reflexivity. Qed.
+Example test_beq_natlist2 :
+  beq_natlist [1;2;3] [1;2;3] = true.
+reflexivity. Qed.
+Example test_beq_natlist3 :
+  beq_natlist [1;2;3] [1;2;4] = false.
+reflexivity. Qed.
+
+Lemma beq_nat_n_n : forall n : nat, beq_nat n n = true.
+Proof.
+  intros.
+  induction n as [| n' IH ].
+  - simpl. reflexivity.
+  - simpl. rewrite IH. reflexivity.
+Qed.
+
+Theorem beq_natlist_refl : forall l:natlist,
+  true = beq_natlist l l.
+Proof.
+  intros.
+  induction l as [| n l IH ].
+  - reflexivity.
+  - simpl. rewrite beq_nat_n_n. simpl. rewrite <- IH. reflexivity.
+Qed.
+
+(* TODO part 2 *)
+
+
