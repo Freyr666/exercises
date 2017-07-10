@@ -494,9 +494,6 @@ Qed.
 
 End NatList.
 
-Module PartialMap.
-Export NatList.
-
 Inductive id : Type :=
 | Id : nat -> id.
 
@@ -504,6 +501,9 @@ Definition beq_id (x1 x2 : id) :=
   match x1, x2 with
   | Id n1, Id n2 => beq_nat n1 n2
   end.
+
+Module PartialMap.
+Export NatList.
 
 Theorem beq_id_refl : forall x, true = beq_id x x.
 Proof.
