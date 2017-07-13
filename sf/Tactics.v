@@ -255,3 +255,17 @@ Proof.
       + (* beq_nat n 5 = true *) reflexivity.
       + (* beq_nat n 5 = false *) reflexivity. Qed.
 
+Theorem combine_split : forall X Y (l : list (X * Y)) l1 l2,
+  split l = (l1, l2) ->
+  combine l1 l2 = l.
+Proof.
+  intros X Y l.
+  induction l as [| (x, y) l' ].
+  - intros. simpl in H. inversion H. reflexivity.
+  - simpl. destruct (split l') as [xs ys ]. intros.
+    inversion H. simpl. assert (TLS : combine xs ys = l').
+    apply IHl'. reflexivity. rewrite TLS. reflexivity.
+Qed.
+
+(* TODO Informal proof *)
+  
