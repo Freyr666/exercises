@@ -268,4 +268,130 @@ Proof.
 Qed.
 
 (* TODO Informal proof *)
-  
+
+Definition sillyfun1 (n : nat) : bool :=
+  if beq_nat n 3 then true
+  else if beq_nat n 5 then true
+       else false.
+
+
+Theorem sillyfun1_odd : forall(n : nat),
+     sillyfun1 n = true ->
+     oddb n = true.
+Proof.
+  intros n eq. unfold sillyfun1 in eq.
+  destruct (beq_nat n 3) eqn:EQ3.
+  - apply beq_nat_true in EQ3. rewrite EQ3. reflexivity.
+  - destruct (beq_nat n 5) eqn:EQ5.
+    + apply beq_nat_true in EQ5. rewrite EQ5. reflexivity.
+    + inversion eq.
+Qed.
+
+Theorem bool_fn_applied_thrice :
+  forall(f : bool -> bool) (b : bool),
+    f (f (f b)) = f b.
+Proof.
+  intros. destruct (f b) eqn:B.
+  - destruct b in B.
+    + rewrite B, B. reflexivity.
+    + destruct (f true) eqn:FTRUE.
+      * rewrite FTRUE. reflexivity.
+      * rewrite B. reflexivity.
+  - destruct b in B.
+    + destruct (f false) eqn:FFALSE.
+      * rewrite B. reflexivity.
+      * rewrite FFALSE. reflexivity.
+    + rewrite B, B. reflexivity.
+Qed.
+
+Lemma beq_nat_n_n : forall n : nat, beq_nat n n = true.
+Proof.
+  intros.
+  induction n as [| n' IH ].
+  - simpl. reflexivity.
+  - simpl. rewrite IH. reflexivity.
+Qed.
+
+Theorem beq_nat_sym : forall(n m : nat),
+  beq_nat n m = beq_nat m n.
+Proof.
+  intros.
+  destruct (beq_nat m n) eqn:MN.
+  - apply beq_nat_true in MN. rewrite MN. apply beq_nat_n_n.
+  - destruct (beq_nat n m) eqn:NM.
+    + apply beq_nat_true in NM. rewrite NM in MN. inversion MN. symmetry. apply beq_nat_n_n.
+    + reflexivity.
+Qed.
+
+
+(* TODO Informal proof FILL IN HERE *)
+
+Theorem beq_nat_trans : forall n m p,
+  beq_nat n m = true ->
+  beq_nat m p = true ->
+  beq_nat n p = true.
+Proof.
+  intros.
+  apply beq_nat_true in H.
+  apply beq_nat_true in H0.
+  symmetry in H0. rewrite H, H0.
+  apply beq_nat_n_n.
+Qed.
+
+Definition split_combine_statement : Prop :=
+  forall X (l1 l2 : list X),
+    length l1 = length l2 ->
+    split (combine l1 l2) = (l1, l2).
+
+Theorem split_combine : split_combine_statement.
+Proof.
+  intros X l1. induction l1 as [| x xs ].
+  - intros l2. destruct l2 as [| y ys ].
+    + intros. reflexivity.
+    + intros. inversion H.
+  - intros l2 H. destruct l2 as [| y ys ].
+    + inversion H.
+    + simpl. rewrite -> IHxs. reflexivity. inversion H. reflexivity.
+Qed.
+
+Theorem filter_exercise : forall(X : Type) (test : X -> bool)
+                           (x : X) (l lf : list X),
+    filter test l = x :: lf ->
+    test x = true.
+Proof.
+  intros X test x l lf.
+  generalize dependent x.
+  induction l as [| y ys IH ].
+  - simpl. intros. inversion H.
+  - simpl. destruct (test y) eqn:TY.
+    + intros. inversion H. rewrite <- H1. apply TY.
+    + intros. apply IH in H. apply H.
+Qed.
+
+Fixpoint forallb {X : Type} (f : X -> bool) (l : list X) : bool :=
+  match l with
+  | [] => true
+  | x::xs => (f x) && (forallb f xs)
+  end.
+
+Fixpoint existsb {X : Type} (f : X -> bool) (l : list X) : bool :=
+  match l with
+  | [] => false
+  | x::xs => if (f x)
+            then true
+            else (existsb f xs)
+  end.
+
+Definition existsb' {X : Type} (f : X -> bool) (l : list X) : bool := negb (forallb (fun x => negb (f x)) l).
+
+Theorem existsb_existsb' : forall (X : Type) (test : X -> bool)
+                             (l : list X),
+    existsb test l = existsb' test l.
+Proof.
+  intros.
+  induction l as [| x xs IH ].
+  - reflexivity.
+  - unfold existsb'. simpl. destruct (test x) eqn:TX.
+    + reflexivity.
+    + simpl. inversion IH. unfold existsb' in H0. rewrite <- H0. reflexivity.
+Qed.
