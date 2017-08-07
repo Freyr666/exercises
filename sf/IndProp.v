@@ -33,56 +33,6 @@ Proof.
   - simpl. apply ev_SS. apply IH.
 Qed.
 
-(* ################################################################# *)
-(** * Using Evidence in Proofs *)
-
-(** Besides _constructing_ evidence that numbers are even, we can also
-    _reason about_ such evidence.
-
-    Introducing [ev] with an [Inductive] declaration tells Coq not
-    only that the constructors [ev_0] and [ev_SS] are valid ways to
-    build evidence that some number is even, but also that these two
-    constructors are the _only_ ways to build evidence that numbers
-    are even (in the sense of [ev]). *)
-
-(** In other words, if someone gives us evidence [E] for the assertion
-    [ev n], then we know that [E] must have one of two shapes:
-
-      - [E] is [ev_0] (and [n] is [O]), or
-      - [E] is [ev_SS n' E'] (and [n] is [S (S n')], where [E'] is
-        evidence for [ev n']). *)
-
-(** This suggests that it should be possible to analyze a hypothesis
-    of the form [ev n] much as we do inductively defined data
-    structures; in particular, it should be possible to argue by
-    _induction_ and _case analysis_ on such evidence.  Let's look at a
-    few examples to see what this means in practice. *)
-
-(* ================================================================= *)
-(** ** Inversion on Evidence *)
-
-(** Suppose we are proving some fact involving a number [n], and we
-    are given [ev n] as a hypothesis.  We already know how to perform
-    case analysis on [n] using the [inversion] tactic, generating
-    separate subgoals for the case where [n = O] and the case where [n
-    = S n'] for some [n'].  But for some proofs we may instead want to
-    analyze the evidence that [ev n] _directly_.
-
-    By the definition of [ev], there are two cases to consider:
-
-    - If the evidence is of the form [ev_0], we know that [n = 0].
-
-    - Otherwise, the evidence must have the form [ev_SS n' E'], where
-      [n = S (S n')] and [E'] is evidence for [ev n']. *)
-
-(** We can perform this kind of reasoning in Coq, again using
-    the [inversion] tactic.  Besides allowing us to reason about
-    equalities involving constructors, [inversion] provides a
-    case-analysis principle for inductively defined propositions.
-    When used in this way, its syntax is similar to [destruct]: We
-    pass it a list of identifiers separated by [|] characters to name
-    the arguments to each of the possible constructors.  *)
-
 Theorem ev_minus2 : forall n,
   ev n -> ev (pred (pred n)).
 Proof.
@@ -91,20 +41,6 @@ Proof.
   - (* E = ev_0 *) simpl. apply ev_0.
   - (* E = ev_SS n' E' *) simpl. apply E'.  Qed.
 
-(** In words, here is how the inversion reasoning works in this proof:
-
-    - If the evidence is of the form [ev_0], we know that [n = 0].
-      Therefore, it suffices to show that [ev (pred (pred 0))] holds.
-      By the definition of [pred], this is equivalent to showing that
-      [ev 0] holds, which directly follows from [ev_0].
-
-    - Otherwise, the evidence must have the form [ev_SS n' E'], where
-      [n = S (S n')] and [E'] is evidence for [ev n'].  We must then
-      show that [ev (pred (pred (S (S n'))))] holds, which, after
-      simplification, follows directly from [E']. *)
-
-(** This particular proof also works if we replace [inversion] by
-    [destruct]: *)
 
 Theorem ev_minus2' : forall n,
   ev n -> ev (pred (pred n)).
@@ -113,33 +49,6 @@ Proof.
   destruct E as [| n' E'].
   - (* E = ev_0 *) simpl. apply ev_0.
   - (* E = ev_SS n' E' *) simpl. apply E'.  Qed.
-
-(** The difference between the two forms is that [inversion] is more
-    convenient when used on a hypothesis that consists of an inductive
-    property applied to a complex expression (as opposed to a single
-    variable).  Here's is a concrete example.  Suppose that we wanted
-    to prove the following variation of [ev_minus2]: *)
-
-(** Intuitively, we know that evidence for the hypothesis cannot
-    consist just of the [ev_0] constructor, since [O] and [S] are
-    different constructors of the type [nat]; hence, [ev_SS] is the
-    only case that applies.  Unfortunately, [destruct] is not smart
-    enough to realize this, and it still generates two subgoals.  Even
-    worse, in doing so, it keeps the final goal unchanged, failing to
-    provide any useful information for completing the proof.  *)
-
-(** What happened, exactly?  Calling [destruct] has the effect of
-    replacing all occurrences of the property argument by the values
-    that correspond to each constructor.  This is enough in the case
-    of [ev_minus2'] because that argument, [n], is mentioned directly
-    in the final goal. However, it doesn't help in the case of
-    [evSS_ev] since the term that gets replaced ([S (S n)]) is not
-    mentioned anywhere. *)
-
-(** The [inversion] tactic, on the other hand, can detect (1) that the
-    first case does not apply, and (2) that the [n'] that appears on
-    the [ev_SS] case must be the same as [n].  This allows us to
-    complete the proof: *)
 
 Theorem evSS_ev : forall n,
   ev (S (S n)) -> ev n.
@@ -150,16 +59,9 @@ Proof.
   apply E'.
 Qed.
 
-(** By using [inversion], we can also apply the principle of explosion
-    to "obviously contradictory" hypotheses involving inductive
-    properties. For example: *)
-
 Theorem one_not_even : ~ ev 1.
 Proof.
   intros H. inversion H. Qed.
-
-(** **** Exercise: 1 star (inversion_practice)  *)
-(** Prove the following results using [inversion]. *)
 
 Theorem SSSSev__even : forall n,
   ev (S (S (S (S n)))) -> ev n.
@@ -177,33 +79,6 @@ Proof.
   inversion H1. inversion H3.
 Qed.
 
-
-(** The way we've used [inversion] here may seem a bit
-    mysterious at first.  Until now, we've only used [inversion] on
-    equality propositions, to utilize injectivity of constructors or
-    to discriminate between different constructors.  But we see here
-    that [inversion] can also be applied to analyzing evidence for
-    inductively defined propositions.
-
-    Here's how [inversion] works in general.  Suppose the name [I]
-    refers to an assumption [P] in the current context, where [P] has
-    been defined by an [Inductive] declaration.  Then, for each of the
-    constructors of [P], [inversion I] generates a subgoal in which
-    [I] has been replaced by the exact, specific conditions under
-    which this constructor could have been used to prove [P].  Some of
-    these subgoals will be self-contradictory; [inversion] throws
-    these away.  The ones that are left represent the cases that must
-    be proved to establish the original goal.  For those, [inversion]
-    adds all equations into the proof context that must hold of the
-    arguments given to [P] (e.g., [S (S n') = n] in the proof of
-    [evSS_ev]). *)
-
-(** The [ev_double] exercise above shows that our new notion of
-    evenness is implied by the two earlier ones (since, by
-    [even_bool_prop] in chapter [Logic], we already know that
-    those are equivalent to each other). To show that all three
-    coincide, we just need the following lemma: *)
-
 Lemma ev_even : forall n,
   ev n -> exists k, n = double k.
 Proof.
@@ -217,30 +92,6 @@ Proof.
     rewrite Hk'. exists (S k'). reflexivity.
 Qed.
 
-(* ================================================================= *)
-(** ** Induction on Evidence *)
-
-(** If this looks familiar, it is no coincidence: We've encountered
-    similar problems in the [Induction] chapter, when trying to use
-    case analysis to prove results that required induction.  And once
-    again the solution is... induction!
-
-    The behavior of [induction] on evidence is the same as its
-    behavior on data: It causes Coq to generate one subgoal for each
-    constructor that could have used to build that evidence, while
-    providing an induction hypotheses for each recursive occurrence of
-    the property in question. *)
-
-(** Let's try our current lemma again: *)
-
-(** Here, we can see that Coq produced an [IH] that corresponds to
-    [E'], the single recursive occurrence of [ev] in its own
-    definition.  Since [E'] mentions [n'], the induction hypothesis
-    talks about [n'], as opposed to [n] or some other number. *)
-
-(** The equivalence between the second and third definitions of
-    evenness now follows. *)
-
 Theorem ev_even_iff : forall n,
   ev n <-> exists k, n = double k.
 Proof.
@@ -248,14 +99,6 @@ Proof.
   - (* -> *) apply ev_even.
   - (* <- *) intros [k Hk]. rewrite Hk. apply ev_double.
 Qed.
-
-(** As we will see in later chapters, induction on evidence is a
-    recurring technique across many areas, and in particular when
-    formalizing the semantics of programming languages, where many
-    properties of interest are defined inductively. *)
-
-(** The following exercises provide simple examples of this
-    technique, to help you familiarize yourself with it. *)
 
 (** **** Exercise: 2 stars (ev_sum)  *)
 Theorem ev_sum : forall n m, ev n -> ev m -> ev (n + m).
@@ -330,47 +173,13 @@ Theorem ev_plus_plus : forall n m p,
 Proof.
 Admitted.
 
-(* ################################################################# *)
-(** * Inductive Relations *)
-
-(** A proposition parameterized by a number (such as [ev])
-    can be thought of as a _property_ -- i.e., it defines
-    a subset of [nat], namely those numbers for which the proposition
-    is provable.  In the same way, a two-argument proposition can be
-    thought of as a _relation_ -- i.e., it defines a set of pairs for
-    which the proposition is provable. *)
-
 Module Playground.
-
-(** One useful example is the "less than or equal to" relation on
-    numbers. *)
-
-(** The following definition should be fairly intuitive.  It
-    says that there are two ways to give evidence that one number is
-    less than or equal to another: either observe that they are the
-    same number, or give evidence that the first is less than or equal
-    to the predecessor of the second. *)
 
 Inductive le : nat -> nat -> Prop :=
   | le_n : forall n, le n n
   | le_S : forall n m, (le n m) -> (le n (S m)).
 
 Notation "m <= n" := (le m n).
-
-(** Proofs of facts about [<=] using the constructors [le_n] and
-    [le_S] follow the same patterns as proofs about properties, like
-    [ev] above. We can [apply] the constructors to prove [<=]
-    goals (e.g., to show that [3<=3] or [3<=6]), and we can use
-    tactics like [inversion] to extract information from [<=]
-    hypotheses in the context (e.g., to prove that [(2 <= 1) ->
-    2+2=5].) *)
-
-(** Here are some sanity checks on the definition.  (Notice that,
-    although these are the same kind of simple "unit tests" as we gave
-    for the testing functions we wrote in the first few lectures, we
-    must construct their proofs explicitly -- [simpl] and
-    [reflexivity] don't do the job, because the proofs aren't just a
-    matter of simplifying computations.) *)
 
 Theorem test_le1 :
   3 <= 3.
@@ -389,9 +198,6 @@ Theorem test_le3 :
 Proof.
   (* WORKED IN CLASS *)
   intros H. inversion H. inversion H2.  Qed.
-
-(** The "strictly less than" relation [n < m] can now be defined
-    in terms of [le]. *)
 
 End Playground.
 
@@ -415,15 +221,21 @@ Inductive next_even : nat -> nat -> Prop :=
 (** Define an inductive binary relation [total_relation] that holds
     between every pair of natural numbers. *)
 
-(* FILL IN HERE *)
-(** [] *)
+Inductive total_relation : nat -> nat -> Prop :=
+| tr : forall n m, total_relation n m.
 
 (** **** Exercise: 2 stars, optional (empty_relation)  *)
 (** Define an inductive binary relation [empty_relation] (on numbers)
     that never holds. *)
 
-(* FILL IN HERE *)
-(** [] *)
+Inductive empty_relation : nat -> nat -> Prop :=
+| er : forall n m, False -> empty_relation n m.
+
+Lemma er_test : forall n m, ~ empty_relation n m.
+Proof.
+  intros n m. unfold not. intros H.
+  inversion H. inversion H0.
+Qed.
 
 (** **** Exercise: 3 stars, optional (le_exercises)  *)
 (** Here are a number of facts about the [<=] and [<] relations that
@@ -433,73 +245,145 @@ Inductive next_even : nat -> nat -> Prop :=
 Lemma le_trans : forall m n o, m <= n -> n <= o -> m <= o.
 Proof.
   intros m n o H1 H2.
-  inversion H1.
-  - inversion H2.
-    + apply le_n.
-    + rewrite H3. apply H2.
-  - inversion H2.
-    + rewrite <- H3. apply H1.
-    + Admitted.
+  induction H2 as [| n' o' ].
+  - apply H1.
+  - apply le_S. apply IHo'.
+Qed.
 
 Theorem O_le_n : forall n,
   0 <= n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. induction n.
+  - apply le_n.
+  - apply le_S. apply IHn.
+Qed.
 
 Theorem n_le_m__Sn_le_Sm : forall n m,
   n <= m -> S n <= S m.
 Proof.
-  (* FILL IN HERE *) Admitted.
-
+  intros.
+  induction H.
+  - apply le_n.
+  - apply le_S. apply IHle.
+Qed.
+  
 Theorem Sn_le_Sm__n_le_m : forall n m,
   S n <= S m -> n <= m.
 Proof.
-  (* FILL IN HERE *) Admitted.
-
+  intros. inversion H.
+  - apply le_n.
+  - apply (le_trans n (S n)).
+    + apply le_S. apply le_n.
+    + apply H1.
+Qed.
+  
 Theorem le_plus_l : forall a b,
   a <= a + b.
 Proof.
-  (* FILL IN HERE *) Admitted.
-
+  intros.
+  induction b.
+  - rewrite <- plus_n_0. apply le_n.
+  - rewrite <- plus_n_Sm. apply le_S. apply IHb.
+Qed.
+  
 Theorem plus_lt : forall n1 n2 m,
   n1 + n2 < m ->
   n1 < m /\ n2 < m.
 Proof.
- unfold lt.
- (* FILL IN HERE *) Admitted.
+  unfold lt. intros.
+  induction H as [| m' H [Hl Hr] ].
+  split.
+  - apply n_le_m__Sn_le_Sm.
+    induction n2.
+    + rewrite <- plus_n_0. apply le_n.
+    + rewrite <- plus_n_Sm. apply le_S. apply IHn2.
+  - apply n_le_m__Sn_le_Sm.
+    induction n1.
+    + simpl. apply le_n.
+    + simpl. apply le_S. apply IHn1.
+  - split.
+    + apply le_S. apply Hl.
+    + apply le_S. apply Hr.
+Qed.
 
 Theorem lt_S : forall n m,
   n < m ->
   n < S m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  unfold lt.
+  intros. apply le_S. apply H.
+Qed.
+
+Theorem Sn_leb_Sm__n_leb_m : forall n m,
+  leb (S n) (S m) = true -> leb n m = true.
+Proof.
+  intros n m H. inversion H. reflexivity.
+Qed.
 
 Theorem leb_complete : forall n m,
   leb n m = true -> n <= m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. generalize dependent n. induction m.
+  - intros. induction n.
+    + apply le_n.
+    + inversion H.
+  - intros. induction n.
+    + apply O_le_n.
+    + apply Sn_leb_Sm__n_leb_m in H. apply IHm in H. apply n_le_m__Sn_le_Sm. apply H.
+Qed.
 
 (** Hint: The next one may be easiest to prove by induction on [m]. *)
+
+Lemma n_leb_m__Sn_leb_Sm : forall n m,
+    leb n m = true -> leb (S n) (S m) = true.
+Proof.
+  intros n m H. inversion H. reflexivity.
+Qed.
 
 Theorem leb_correct : forall n m,
   n <= m ->
   leb n m = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
-
+  intros. generalize dependent n.
+  induction m.
+  - intros. inversion H. reflexivity.
+  - intros. inversion H.
+    + simpl. rewrite <- leb_refl. reflexivity.
+    + apply IHm in H1.
+      assert (NSM : forall x y :nat, leb x y = true -> leb x (S y) = true).
+      { intros. generalize dependent y. induction x.
+        - intros. simpl. reflexivity.
+        - intros. induction y.
+          + inversion H2.
+          + apply n_leb_m__Sn_leb_Sm. apply IHx. apply Sn_leb_Sm__n_leb_m in H2. apply H2. }
+      apply NSM. apply H1.
+Qed.
+  
 (** Hint: This theorem can easily be proved without using [induction]. *)
 
 Theorem leb_true_trans : forall n m o,
   leb n m = true -> leb m o = true -> leb n o = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m o Hnm Hmo.
+  apply leb_correct.
+  apply leb_complete in Hnm.
+  apply leb_complete in Hmo.
+  apply (le_trans n m).
+  - apply Hnm.
+  - apply Hmo.
+Qed.
 
 (** **** Exercise: 2 stars, optional (leb_iff)  *)
 Theorem leb_iff : forall n m,
   leb n m = true <-> n <= m.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  intros.
+  split.
+  - intros. apply leb_complete. apply H.
+  - intros. apply leb_correct. apply H.
+Qed.
+
+(* TODO *)
 
 Module R.
 
