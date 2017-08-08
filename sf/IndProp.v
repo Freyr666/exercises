@@ -168,9 +168,17 @@ Qed.
     induction or even case analysis is needed, though some of the
     rewriting may be tedious. *)
 
+Lemma plus_nm_np : forall n m p, n + m = n + p -> m = p.
+Proof.
+  intros. induction n.
+  - simpl in H. apply H.
+  - simpl in H. apply IHn. inversion H. reflexivity.
+Qed.
+
 Theorem ev_plus_plus : forall n m p,
   ev (n+m) -> ev (n+p) -> ev (m+p).
 Proof.
+  intros n m p Hnm Hnp.
 Admitted.
 
 Module Playground.
@@ -494,16 +502,16 @@ End R.
 
 (* FILL IN HERE *)
 Inductive subseq : list nat -> list nat -> Prop :=
-| empty  : subseq [] []
-| proper : forall x xs ys, subseq xs ys -> subseq (x::xs) (x::ys)
-| false  : forall y xs ys, subseq xs ys -> subseq xs (y::ys).
+| subseq_empty  : forall xs, subseq [] xs
+| subseq_proper : forall x xs ys, subseq xs ys -> subseq (x::xs) (x::ys)
+| subseq_false  : forall y xs ys, subseq xs ys -> subseq xs (y::ys).
 
 Theorem subseq_refl : forall (l : list nat), subseq l l.
 Proof.
   intros.
   induction l.
-  - apply empty.
-  - apply proper. apply IHl.
+  - apply subseq_empty.
+  - apply subseq_proper. apply IHl.
 Qed.
 
 Theorem subseq_app : forall (l1 l2 l3 : list nat), subseq l1 l2 -> subseq l1 (l2 ++ l3).
@@ -511,16 +519,28 @@ Proof.
   intros.
   induction H.
   - simpl. induction l3.
-    + apply empty.
-    + apply false. apply IHl3.
-  - simpl. apply proper. apply IHsubseq.
-  - simpl. apply false. apply IHsubseq.
+    + apply subseq_empty.
+    + apply subseq_empty.
+  - simpl. apply subseq_proper. apply IHsubseq.
+  - simpl. apply subseq_false. apply IHsubseq.
 Qed.
 
 Theorem subseq_trans : forall (l1 l2 l3 : list nat), subseq l1 l2 -> subseq l2 l3 -> subseq l1 l3.
 Proof.
-Admitted.
- 
+  intros l1 l2 l3 H12 H23.
+  generalize dependent H12.
+  generalize dependent l1.
+  induction H23.
+  - intros. assert (HXS : xs = [] ++ xs).
+    { reflexivity. }
+    rewrite HXS. apply subseq_app. apply H12.
+  - intros. inversion H12.
+    + apply subseq_empty.
+    + apply subseq_proper. apply IHsubseq. apply H1.
+    + apply subseq_false. apply IHsubseq. apply H1.
+  - intros. apply subseq_false. apply IHsubseq. apply H12.
+Qed.
+  
 (** **** Exercise: 2 stars, optionalM (R_provability2)  *)
 (** Suppose we give Coq the following definition:
 
