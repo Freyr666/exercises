@@ -383,8 +383,6 @@ Proof.
   - intros. apply leb_correct. apply H.
 Qed.
 
-(* TODO *)
-
 Module R.
 
 (** **** Exercise: 3 stars, recommendedM (R_provability)  *)
@@ -412,7 +410,7 @@ Inductive R : nat -> nat -> nat -> Prop :=
       sentence) explain your answer.
 
 (* FILL IN HERE *)
-[]
+
 *)
 
 (** **** Exercise: 3 stars, optional (R_fact)  *)
@@ -420,13 +418,41 @@ Inductive R : nat -> nat -> nat -> Prop :=
     Figure out which function; then state and prove this equivalence
     in Coq? *)
 
-Definition fR : nat -> nat -> nat
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
+Definition fR : nat -> nat -> nat :=
+  fun x y => x + y.
+
+Lemma fR_plus : forall n m : nat, m + n = fR m n.
+Proof. unfold fR. reflexivity. Qed.
 
 Theorem R_equiv_fR : forall m n o, R m n o <-> fR m n = o.
 Proof.
-(* FILL IN HERE *) Admitted.
-(** [] *)
+  intros.
+  split.
+  - intros.
+    induction H.
+    + reflexivity.
+    + simpl. rewrite IHR. reflexivity.
+    + rewrite <- plus_n_Sm. 
+      rewrite fR_plus. rewrite IHR. reflexivity.
+    + simpl in IHR. rewrite <- plus_n_Sm in IHR.
+      inversion IHR. unfold fR. reflexivity.
+    + rewrite <- IHR. unfold fR. rewrite plus_comm. reflexivity.
+  - intros. induction H.
+    { generalize dependent n. induction m.
+      - intros. induction n.
+        + simpl. apply c1.
+        + assert (FRS : fR 0 (S n) = S (fR 0 n)).
+          { simpl. reflexivity. }
+          rewrite FRS. apply c3. apply IHn.
+      - intros. induction n.
+        + assert (FRS : fR (S m) 0 = S (fR m 0)).
+          { simpl. reflexivity. }
+          rewrite FRS. apply c2. apply IHm.
+        + assert (FRSS : fR (S m) (S n) = S (fR m (S n))).
+          { simpl. reflexivity. }
+          rewrite FRSS. apply c2. apply IHm. }
+Qed.      
+        
 
 End R.
 
@@ -467,8 +493,34 @@ End R.
       Hint: choose your induction carefully! *)
 
 (* FILL IN HERE *)
-(** [] *)
+Inductive subseq : list nat -> list nat -> Prop :=
+| empty  : subseq [] []
+| proper : forall x xs ys, subseq xs ys -> subseq (x::xs) (x::ys)
+| false  : forall y xs ys, subseq xs ys -> subseq xs (y::ys).
 
+Theorem subseq_refl : forall (l : list nat), subseq l l.
+Proof.
+  intros.
+  induction l.
+  - apply empty.
+  - apply proper. apply IHl.
+Qed.
+
+Theorem subseq_app : forall (l1 l2 l3 : list nat), subseq l1 l2 -> subseq l1 (l2 ++ l3).
+Proof.
+  intros.
+  induction H.
+  - simpl. induction l3.
+    + apply empty.
+    + apply false. apply IHl3.
+  - simpl. apply proper. apply IHsubseq.
+  - simpl. apply false. apply IHsubseq.
+Qed.
+
+Theorem subseq_trans : forall (l1 l2 l3 : list nat), subseq l1 l2 -> subseq l2 l3 -> subseq l1 l3.
+Proof.
+Admitted.
+ 
 (** **** Exercise: 2 stars, optionalM (R_provability2)  *)
 (** Suppose we give Coq the following definition:
 
@@ -483,7 +535,11 @@ End R.
     - [R 1 [1;2;1;0]]
     - [R 6 [3;2;1;0]]  *)
 
-(** [] *)
+(** 
+- [R 2 [1;0]] is provable
+- [R 1 [1;2;1;0]] is also provable
+- [R 6 [3;2;1;0]] is not provable
+ *)
 
 
 (* ################################################################# *)
