@@ -777,14 +777,19 @@ Qed.
 Lemma empty_is_empty : forall T (s : list T),
   ~ (s =~ EmptySet).
 Proof.
-  (* FILL IN HERE *) Admitted.
-
+  intros T s H.
+  inversion H.
+Qed.
+  
 Lemma MUnion' : forall T (s : list T) (re1 re2 : reg_exp T),
   s =~ re1 \/ s =~ re2 ->
   s =~ Union re1 re2.
 Proof.
-  (* FILL IN HERE *) Admitted.
-
+  intros T s re1 re2 [ H1 | H2 ].
+  - apply (MUnionL s re1). apply H1.
+  - apply (MUnionR _ s re2). apply H2.
+Qed.
+  
 (** The next lemma is stated in terms of the [fold] function from the
     [Poly] chapter: If [ss : list (list T)] represents a sequence of
     strings [s1, ..., sn], then [fold app ss []] is the result of
@@ -794,18 +799,47 @@ Lemma MStar' : forall T (ss : list (list T)) (re : reg_exp T),
   (forall s, In s ss -> s =~ re) ->
   fold app ss [] =~ Star re.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  intros.
+  induction ss.
+  - simpl. apply MStar0.
+  - simpl. apply (MStarApp x).
+    + apply H. simpl. left. reflexivity.
+    + apply IHss. intros. apply H.
+      simpl. right. apply H0.
+Qed.
+  
 (** **** Exercise: 4 stars (reg_exp_of_list)  *)
 (** Prove that [reg_exp_of_list] satisfies the following
     specification: *)
 
-
 Lemma reg_exp_of_list_spec : forall T (s1 s2 : list T),
   s1 =~ reg_exp_of_list s2 <-> s1 = s2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. split.
+  - generalize dependent s1. induction s2.
+    + intros. inversion H. reflexivity.
+    + intros. simpl in H. induction s1.
+      * inversion H. assert (SSE : s1 ++ s0 = [] -> s1 = []).
+        { intros. induction s1.
+          - reflexivity.
+          - inversion H5. }
+        apply SSE in H0. rewrite H0 in H3. inversion H3.
+      * inversion H. inversion H3.
+        assert (RMX : s3 = s2 -> [x] ++ s3 = x :: s2).
+        { intros. rewrite H6. reflexivity. }
+        apply RMX. apply IHs2. apply H4.
+  - generalize dependent s1.
+    generalize dependent s2.
+    induction s2.
+    + intros. rewrite H. simpl. apply MEmpty.
+    + induction s1.
+      * intros. rewrite <- H. simpl. apply MEmpty.
+      * intros. simpl. inversion H. apply (MApp [x] (Char x)).
+        { apply MChar. }
+        { apply IHs2. reflexivity. }
+Qed.
+      
+  
 (** [] *)
 
 (** Since the definition of [exp_match] has a recursive
