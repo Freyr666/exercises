@@ -838,9 +838,6 @@ Proof.
         { apply MChar. }
         { apply IHs2. reflexivity. }
 Qed.
-      
-  
-(** [] *)
 
 (** Since the definition of [exp_match] has a recursive
     structure, we might expect that proofs involving regular
@@ -918,15 +915,46 @@ Qed.
     regular expression matches some string. Prove that your function
     is correct. *)
 
-Fixpoint re_not_empty {T : Type} (re : reg_exp T) : bool
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
-
+Fixpoint re_not_empty {T : Type} (re : reg_exp T) : bool :=
+  match re with
+  | EmptySet => false
+  | EmptyStr => true
+  | Char _ => true
+  | App re1 re2 => (re_not_empty re1) && (re_not_empty re2)
+  | Union re1 re2 => (re_not_empty re1) || (re_not_empty re2)
+  | Star re => true
+  end.
+  
 Lemma re_not_empty_correct : forall T (re : reg_exp T),
   (exists s, s =~ re) <-> re_not_empty re = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  split.
+  - intros. inversion H. induction H0.
+    + reflexivity.
+    + reflexivity.
+    + simpl. apply andb_true_iff. split.
+      * apply IHexp_match1. exists s1. apply H0_.
+      * apply IHexp_match2. exists s2. apply H0_0.
+    + simpl. apply orb_true_iff. left. apply IHexp_match. exists s1. apply H0.
+    + simpl. apply orb_true_iff. right. apply IHexp_match. exists s2. apply H0.
+    + reflexivity.
+    + reflexivity.
+  - intros. induction re.
+    + inversion H.
+    + exists []. apply MEmpty.
+    + exists [t]. apply (MChar t).
+    + inversion H. apply andb_true_iff in H1. destruct H1 as [H1 H2].
+      apply IHre1 in H1. apply IHre2 in H2.
+      inversion H1. inversion H2.
+      exists (x ++ x0). apply MApp.
+      * apply H0.
+      * apply H3.
+    + inversion H. apply orb_true_iff in H1. destruct H1 as [H1 | H2].
+      * apply IHre1 in H1. inversion H1. exists x. apply MUnionL. apply H0.
+      * apply IHre2 in H2. inversion H2. exists x. apply MUnionR. apply H0.
+    + exists [ ]. apply MStar0.
+Qed.
+  
 (* ================================================================= *)
 (** ** The [remember] Tactic *)
 
@@ -1061,8 +1089,25 @@ Lemma MStar'' : forall T (s : list T) (re : reg_exp T),
     s = fold app ss []
     /\ forall s', In s' ss -> s' =~ re.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  intros. remember (Star re) as re'.
+  induction H.
+  - inversion Heqre'.
+  - inversion Heqre'.
+  - inversion Heqre'.
+  - inversion Heqre'.
+  - inversion Heqre'.
+  - exists [ ]. simpl. split.
+    + reflexivity.
+    + intros. exfalso. apply H.
+  - inversion Heqre'. apply IHexp_match2 in Heqre'. destruct Heqre' as [ss Hi].
+    exists (s1 :: ss). destruct Hi. split.
+    + simpl. rewrite <- H1. reflexivity.
+    + simpl. intros s' [Hl | Hr].
+      * rewrite <- H2. rewrite <- Hl. apply H.
+      * apply H3 in Hr. apply Hr.
+Qed.
+
+(* TODO *)
 
 (** **** Exercise: 5 stars, advanced (pumping)  *)
 (** One of the first really interesting theorems in the theory of
@@ -1144,7 +1189,10 @@ Proof.
        | re | s1 s2 re Hmatch1 IH1 Hmatch2 IH2 ].
   - (* MEmpty *)
     simpl. omega.
-  (* FILL IN HERE *) Admitted.
+  - (* MChar *)
+    simpl. omega.
+  - (* MApp *)
+    intros. Admitted.
 
 End Pumping.
 (** [] *)
@@ -1233,9 +1281,13 @@ Qed.
 (** **** Exercise: 2 stars, recommended (reflect_iff)  *)
 Theorem reflect_iff : forall P b, reflect P b -> (P <-> b = true).
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  intros P b H. split.
+  - intros Hp. inversion H.
+    + reflexivity.
+    + exfalso. apply H0. apply Hp.
+  - intros. rewrite H0 in H. inversion H. apply H1.
+Qed.
+  
 (** The advantage of [reflect] over the normal "if and only if"
     connective is that, by destructing a hypothesis or lemma of the
     form [reflect P b], we can perform case analysis on [b] while at
@@ -1281,12 +1333,26 @@ Fixpoint count n l :=
   | m :: l' => (if beq_nat n m then 1 else 0) + count n l'
   end.
 
+Theorem de_morg_or : forall (P Q : Prop), (~ P /\ ~ Q) -> ~(P \/ Q).
+Proof.
+  intros P Q [HP HQ]. unfold not.
+  intros [H | H].
+  - unfold not in HP. apply HP in H. apply H.
+  - unfold not in HQ. apply HQ in H. apply H.
+Qed.
+
 Theorem beq_natP_practice : forall n l,
   count n l = 0 -> ~(In n l).
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  intros n l. induction l.
+  - simpl. intros. unfold not. intros. apply H0.
+  - simpl. destruct (beq_natP n x) as [H | H].
+    + simpl. intros. inversion H0.
+    + simpl. intros. apply de_morg_or. split.
+      * unfold not. intros. apply H. symmetry. apply H1.
+      * apply IHl. apply H0.
+Qed.
+  
 (** This technique gives us only a small gain in convenience for
     the proofs we've seen here, but using [reflect] consistently often
     leads to noticeably shorter and clearer scripts as proofs get
