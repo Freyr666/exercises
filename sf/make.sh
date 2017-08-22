@@ -8,3 +8,4 @@ coqc Tactics.v
 coqc Logic.v
 coqc IndProp.v
 coqc Maps.v
+coqc ProofObjects.v

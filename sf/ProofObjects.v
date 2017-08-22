@@ -372,9 +372,19 @@ Definition and_comm' P Q : P /\ Q <-> Q /\ P :=
 (** **** Exercise: 2 stars, optional (conj_fact)  *)
 (** Construct a proof object demonstrating the following proposition. *)
 
+Definition and_fact_left P Q (H : P /\ Q) :=
+  match H with
+  | conj HP HQ => HP
+  end.
+
+Definition and_fact_right P Q (H : P /\ Q) :=
+  match H with
+  | conj HP HQ => HQ
+  end.
+
 Definition conj_fact : forall P Q R, P /\ Q -> Q /\ R -> P /\ R :=
-  fun p -> fun q -> fun r ->
-        
+  fun p => fun q => fun r => fun HPQ => fun HQR => conj (and_fact_left p q HPQ) (and_fact_right q r HQR).
+      
                                                       
 (** ** Disjunction
 
@@ -400,10 +410,13 @@ End Or.
 (** Try to write down an explicit proof object for [or_commut] (without
     using [Print] to peek at the ones we already defined!). *)
 
-Definition or_comm : forall P Q, P \/ Q -> Q \/ P 
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
-(** [] *)
-
+Definition or_commut'' : forall P Q, P \/ Q -> Q \/ P :=
+  fun p => fun q => fun (H : p \/ q) => match H with
+                              | or_introl p => or_intror p
+                              | or_intror q => or_introl q
+                              end.
+        
+                                          
 (** ** Existential Quantification
 
     To give evidence for an existential quantifier, we package a
@@ -439,10 +452,9 @@ Definition some_nat_is_even : exists n, ev n :=
 (** **** Exercise: 2 stars, optional (ex_ev_Sn)  *)
 (** Complete the definition of the following proof object: *)
 
-Definition ex_ev_Sn : ex (fun n => ev (S n)) 
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
-(** [] *)
-
+Definition ex_ev_Sn : ex (fun n => ev (S n)) :=
+  ex_intro (fun n => ev (S n)) 1 (ev_SS 0 ev_0).
+                         
 (* ================================================================= *)
 (** ** [True] and [False] *)
 
@@ -497,9 +509,11 @@ Notation "x = y" := (eq x y)
 Lemma leibniz_equality : forall (X : Type) (x y: X),
   x = y -> forall P:X->Prop, P x -> P y.
 Proof.
-(* FILL IN HERE *) Admitted.
-(** [] *)
-
+  intros.
+  destruct H.
+  apply H0.
+Qed.
+  
 (** We can use [eq_refl] to construct evidence that, for example, [2 =
     2].  Can we also use it to construct evidence that [1 + 1 = 2]?
     Yes, we can.  Indeed, it is the very same piece of evidence!  The
