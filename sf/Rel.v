@@ -223,19 +223,16 @@ Qed.
     
  *)
 
-Lemma eq_Sn_n : forall n, S n = n -> False.
-Proof.
-  induction n.
-  - intros. inversion H.
-  - intros. inversion H. apply IHn in H1. apply H1.
-Qed.
-
 (** **** Exercise: 1 star, optional  *)
 Theorem le_Sn_n : forall n,
   ~ (S n <= n).
 Proof.
-  Admitted.
-  
+  unfold not. intros.
+  induction n.
+  - inversion H.
+  - apply IHn. apply Sn_le_Sm__n_le_m in H. apply H.
+Qed.
+                     
 (** Reflexivity and transitivity are the main concepts we'll need for
     later chapters, but, for a bit of additional practice working with
     relations in Coq, let's look at a few other common ones... *)
@@ -271,7 +268,19 @@ Theorem le_antisymmetric :
 Proof.
   unfold antisymmetric.
   intros a b Hab Hba.
-Admitted.  
+  generalize dependent a.
+  induction b.
+  - intros. induction a
+    + intros. reflexivity.
+    + intros. inversion Hab.
+  - intros. induction a.
+    + inversion Hba.
+    + assert (SI : a = b -> S a = S b).
+      { intros. rewrite H. reflexivity. }
+      apply SI. apply IHb.
+      * apply Sn_le_Sm__n_le_m in Hab. apply Hab.
+      * apply Sn_le_Sm__n_le_m in Hba. apply Hba.
+Qed.
   
 (** **** Exercise: 2 stars, optional  *)
 Theorem le_step : forall n m p,
@@ -279,8 +288,12 @@ Theorem le_step : forall n m p,
   m <= S p ->
   n <= p.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  unfold lt.
+  intros n m p Hnm Hmp.
+  apply (le_trans (S n) m (S p)) in Hnm.
+  - apply Sn_le_Sm__n_le_m in Hnm. apply Hnm.
+  - apply Hmp.
+Qed.
 
 (* ----------------------------------------------------------------- *)
 (** *** Equivalence Relations *)
@@ -395,9 +408,14 @@ Lemma rsc_trans :
       clos_refl_trans_1n R y z ->
       clos_refl_trans_1n R x z.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  intros X R x y z Hxy Hyz.
+  induction Hxy.
+  - apply Hyz.
+  - apply IHHxy in Hyz. apply (rt1n_trans R x y z) in H.
+    + apply H.
+    + apply Hyz.
+Qed.
+  
 (** Then we use these facts to prove that the two definitions of
     reflexive, transitive closure do indeed define the same
     relation. *)
@@ -407,7 +425,18 @@ Theorem rtc_rsc_coincide :
          forall (X:Type) (R: relation X) (x y : X),
   clos_refl_trans R x y <-> clos_refl_trans_1n R x y.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
-(** $Date: 2016-05-26 16:17:19 -0400 (Thu, 26 May 2016) $ *)
+  intros. split.
+  (* -> *)
+  - intros. induction H.
+    + apply rsc_R in H. apply H.
+    + apply rt1n_refl.
+    + apply rsc_trans with y.
+      * apply IHclos_refl_trans1.
+      * apply IHclos_refl_trans2.
+  (* <- *)
+  -  intros. induction H.
+     + apply rt_refl.
+     + apply rt_step in H. apply rt_trans with y.
+       * apply H.
+       * apply IHclos_refl_trans_1n.
+Qed.

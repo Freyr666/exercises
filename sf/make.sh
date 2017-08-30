@@ -10,3 +10,4 @@ coqc IndProp.v
 coqc Maps.v
 coqc ProofObjects.v
 coqc IndPrinciples.v
+coqc Rel.v
