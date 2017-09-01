@@ -3,14 +3,18 @@
 (** This short (and optional) chapter develops some basic definitions
     and a few theorems about binary relations in Coq.  The key
     definitions are repeated where they are actually used (in the
-    [Smallstep] chapter), so readers who are already comfortable with
-    these ideas can safely skim or skip this chapter.  However,
-    relations are also a good source of exercises for developing
-    facility with Coq's basic reasoning facilities, so it may be
-    useful to look at this material just after the [IndProp]
-    chapter. *)
+    \CHAPV2{Smallstep} chapter of _Programming Language Foundations_),
+    so readers who are already comfortable with these ideas can safely
+    skim or skip this chapter.  However, relations are also a good
+    source of exercises for developing facility with Coq's basic
+    reasoning facilities, so it may be useful to look at this material
+    just after the [IndProp] chapter. *)
 
+Set Warnings "-notation-overridden,-parsing".
 Require Export IndProp.
+
+(* ################################################################# *)
+(** * Relations *)
 
 (** A binary _relation_ on a set [X] is a family of propositions
     parameterized by two elements of [X] -- i.e., a proposition about
@@ -190,7 +194,7 @@ Proof.
     + rewrite <- H0. apply le_S. apply Hnm.
     + apply IHo' in H0. apply le_S. apply H0.
 Qed.
-  
+
 (** The transitivity of [le], in turn, can be used to prove some facts
     that will be useful later (e.g., for the proof of antisymmetry
     below)... *)
@@ -210,7 +214,7 @@ Proof.
   - apply le_n.
   - apply le_Sn_le in H1. apply H1.
 Qed.
-  
+
 (** **** Exercise: 2 stars, optional (le_Sn_n_inf)  *)
 (** Provide an informal proof of the following theorem:
 
@@ -220,7 +224,8 @@ Qed.
     writing an informal proof without doing the formal proof first.
 
     Proof:
-    
+    (* FILL IN HERE *)
+    []
  *)
 
 (** **** Exercise: 1 star, optional  *)
@@ -232,7 +237,7 @@ Proof.
   - inversion H.
   - apply IHn. apply Sn_le_Sm__n_le_m in H. apply H.
 Qed.
-                     
+
 (** Reflexivity and transitivity are the main concepts we'll need for
     later chapters, but, for a bit of additional practice working with
     relations in Coq, let's look at a few other common ones... *)
@@ -281,7 +286,7 @@ Proof.
       * apply Sn_le_Sm__n_le_m in Hab. apply Hab.
       * apply Sn_le_Sm__n_le_m in Hba. apply Hba.
 Qed.
-  
+
 (** **** Exercise: 2 stars, optional  *)
 Theorem le_step : forall n m p,
   n < m ->
@@ -415,7 +420,7 @@ Proof.
     + apply H.
     + apply Hyz.
 Qed.
-  
+
 (** Then we use these facts to prove that the two definitions of
     reflexive, transitive closure do indeed define the same
     relation. *)
@@ -440,3 +445,5 @@ Proof.
        * apply H.
        * apply IHclos_refl_trans_1n.
 Qed.
+
+(** $Date: 2017-08-24 17:13:02 -0400 (Thu, 24 Aug 2017) $ *)

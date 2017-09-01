@@ -1,8 +1,10 @@
 (** * ProofObjects: The Curry-Howard Correspondence *)
 
-(** "_Algorithms are the computational content of proofs_."  --Robert Harper *)
 
+Set Warnings "-notation-overridden,-parsing".
 Require Export IndProp.
+
+(** "_Algorithms are the computational content of proofs_."  --Robert Harper *)
 
 (** We have seen that Coq has mechanisms both for _programming_,
     using inductive data types like [nat] or [list] and functions over
@@ -85,8 +87,8 @@ Print ev_4.
 (* ===> ev_4 = ev_SS 2 (ev_SS 0 ev_0)
      : ev 4  *)
 
-(** As a matter of fact, we can also write down this proof object
-    _directly_, without the need for a separate proof script: *)
+(** Indeed, we can also write down this proof object _directly_,
+    without the need for a separate proof script: *)
 
 Check (ev_SS 2 (ev_SS 0 ev_0)).
 (* ===> ev 4 *)
@@ -115,12 +117,6 @@ Theorem ev_4': ev 4.
 Proof.
   apply (ev_SS 2 (ev_SS 0 ev_0)).
 Qed.
-
-(** We can now see that this feature is a trivial consequence of the
-    status the Coq grants to proofs and propositions: Lemmas and
-    hypotheses can be combined in expressions (i.e., proof objects)
-    according to the same basic rules used for programs in the
-    language. *)
 
 (* ################################################################# *)
 (** * Proof Scripts *)
@@ -182,10 +178,10 @@ Theorem ev_8 : ev 8.
 Proof.
   apply ev_SS. apply ev_SS. apply ev_4.
 Qed.
-  
+
 Definition ev_8' : ev 8 :=
   ev_SS 6 (ev_SS 4 ev_4).
-                      
+
 (* ################################################################# *)
 (** * Quantifiers, Implications, Functions *)
 
@@ -231,8 +227,8 @@ Check ev_plus4''.
 (* ===> ev_plus4'' : forall n : nat, ev n -> ev (4 + n) *)
 
 (** When we view the proposition being proved by [ev_plus4] as a
-    function type, one aspect of it may seem a little unusual. The
-    second argument's type, [ev n], mentions the _value_ of the first
+    function type, one interesting point becomes apparent: The second
+    argument's type, [ev n], mentions the _value_ of the first
     argument, [n].  While such _dependent types_ are not found in
     conventional programming languages, they can be useful in
     programming too, as the recent flurry of activity in the
@@ -372,20 +368,15 @@ Definition and_comm' P Q : P /\ Q <-> Q /\ P :=
 (** **** Exercise: 2 stars, optional (conj_fact)  *)
 (** Construct a proof object demonstrating the following proposition. *)
 
-Definition and_fact_left P Q (H : P /\ Q) :=
-  match H with
-  | conj HP HQ => HP
-  end.
+Definition conj_fact : forall P Q R, P /\ Q -> Q /\ R -> P /\ R  :=
+  fun p => fun q => fun r => fun HPQ => fun HQR =>
+                              match HPQ with
+                              | conj p q =>
+                                match HQR with
+                                | conj q r => conj p r
+                                end
+                              end.
 
-Definition and_fact_right P Q (H : P /\ Q) :=
-  match H with
-  | conj HP HQ => HQ
-  end.
-
-Definition conj_fact : forall P Q R, P /\ Q -> Q /\ R -> P /\ R :=
-  fun p => fun q => fun r => fun HPQ => fun HQR => conj (and_fact_left p q HPQ) (and_fact_right q r HQR).
-      
-                                                      
 (** ** Disjunction
 
     The inductive definition of disjunction uses two constructors, one
@@ -415,8 +406,7 @@ Definition or_commut'' : forall P Q, P \/ Q -> Q \/ P :=
                               | or_introl p => or_intror p
                               | or_intror q => or_introl q
                               end.
-        
-                                          
+
 (** ** Existential Quantification
 
     To give evidence for an existential quantifier, we package a
@@ -435,9 +425,9 @@ End Ex.
     the form [ex P], where [P] itself is a _function_ from witness
     values in the type [A] to propositions.  The [ex_intro]
     constructor then offers a way of constructing evidence for [ex P],
-    given a witness [x] and a proof of [P x].
+    given a witness [x] and a proof of [P x]. *)
 
-    The more familiar form [exists x, P x] desugars to an expression
+(** The more familiar form [exists x, P x] desugars to an expression
     involving [ex]: *)
 
 Check ex (fun n => ev n).
@@ -452,9 +442,9 @@ Definition some_nat_is_even : exists n, ev n :=
 (** **** Exercise: 2 stars, optional (ex_ev_Sn)  *)
 (** Complete the definition of the following proof object: *)
 
-Definition ex_ev_Sn : ex (fun n => ev (S n)) :=
+Definition ex_ev_Sn : ex (fun n => ev (S n))  :=
   ex_intro (fun n => ev (S n)) 1 (ev_SS 0 ev_0).
-                         
+
 (* ================================================================= *)
 (** ** [True] and [False] *)
 
@@ -513,7 +503,7 @@ Proof.
   destruct H.
   apply H0.
 Qed.
-  
+
 (** We can use [eq_refl] to construct evidence that, for example, [2 =
     2].  Can we also use it to construct evidence that [1 + 1 = 2]?
     Yes, we can.  Indeed, it is the very same piece of evidence!  The
@@ -529,7 +519,7 @@ Proof.
 Qed.
 
 (** The [reflexivity] tactic that we have used to prove equalities up
-    to now is essentially just short-hand for [apply refl_equal].
+    to now is essentially just short-hand for [apply eq_refl].
 
     In tactic-based proofs of equality, the conversion rules are
     normally hidden in uses of [simpl] (either explicit or implicit in
@@ -542,11 +532,7 @@ Definition four' : 2 + 2 = 1 + 3 :=
 Definition singleton : forall (X:Set) (x:X), []++[x] = x::[]  :=
   fun (X:Set) (x:X) => eq_refl [x].
 
-
 End MyEquality.
-
-Definition quiz6 : exists x,  x + 3 = 4
-  := ex_intro (fun z => (z + 3 = 4)) 1 (refl_equal 4).
 
 (* ================================================================= *)
 (** ** Inversion, Again *)
@@ -579,26 +565,26 @@ Definition quiz6 : exists x,  x + 3 = 4
       - if the equalities are not satisfiable (e.g., they involve
         things like [S n = O]), immediately solves the subgoal. *)
 
-(** _Example_: If we invert a hypothesis built with [or], there are two
-   constructors, so two subgoals get generated.  The
-   conclusion (result type) of the constructor ([P \/ Q]) doesn't
-   place any restrictions on the form of [P] or [Q], so we don't get
-   any extra equalities in the context of the subgoal.
+(** _Example_: If we invert a hypothesis built with [or], there are
+    two constructors, so two subgoals get generated.  The
+    conclusion (result type) of the constructor ([P \/ Q]) doesn't
+    place any restrictions on the form of [P] or [Q], so we don't get
+    any extra equalities in the context of the subgoal. *)
 
-   _Example_: If we invert a hypothesis built with [and], there is
-   only one constructor, so only one subgoal gets generated.  Again,
-   the conclusion (result type) of the constructor ([P /\ Q]) doesn't
-   place any restrictions on the form of [P] or [Q], so we don't get
-   any extra equalities in the context of the subgoal.  The
-   constructor does have two arguments, though, and these can be seen
-   in the context in the subgoal.
+(** _Example_: If we invert a hypothesis built with [and], there is
+    only one constructor, so only one subgoal gets generated.  Again,
+    the conclusion (result type) of the constructor ([P /\ Q]) doesn't
+    place any restrictions on the form of [P] or [Q], so we don't get
+    any extra equalities in the context of the subgoal.  The
+    constructor does have two arguments, though, and these can be seen
+    in the context in the subgoal. *)
 
-   _Example_: If we invert a hypothesis built with [eq], there is
-   again only one constructor, so only one subgoal gets generated.
-   Now, though, the form of the [refl_equal] constructor does give us
-   some extra information: it tells us that the two arguments to [eq]
-   must be the same!  The [inversion] tactic adds this fact to the
-   context. *)
+(** _Example_: If we invert a hypothesis built with [eq], there is
+    again only one constructor, so only one subgoal gets generated.
+    Now, though, the form of the [refl_equal] constructor does give us
+    some extra information: it tells us that the two arguments to [eq]
+    must be the same!  The [inversion] tactic adds this fact to the
+    context. *)
 
-(** $Date: 2017-01-30 18:47:45 -0500 (Mon, 30 Jan 2017) $ *)
+(** $Date: 2017-08-24 17:13:02 -0400 (Thu, 24 Aug 2017) $ *)
 

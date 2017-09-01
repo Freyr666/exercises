@@ -3,6 +3,7 @@
 (** With the Curry-Howard correspondence and its realization in Coq in
     mind, we can now take a deeper look at induction principles. *)
 
+Set Warnings "-notation-overridden,-parsing".
 Require Export ProofObjects.
 
 (* ################################################################# *)
@@ -65,7 +66,7 @@ Proof.
   - reflexivity.
   - simpl. intros n' IH. rewrite <- IH. reflexivity.
 Qed.
-  
+
 (** Coq generates induction principles for every datatype defined with
     [Inductive], including those that aren't recursive.  Although of
     course we don't need induction to prove properties of
@@ -182,6 +183,7 @@ Inductive ExSet : Type :=
 | con2 : nat -> ExSet -> ExSet.
 Check ExSet_ind.
 
+
 (* ################################################################# *)
 (** * Polymorphism *)
 
@@ -251,7 +253,7 @@ Check mytype_ind.
              (forall f1 : nat -> foo X Y,
                (forall n : nat, P (f1 n)) -> P (quux X Y f1)) ->
              forall f2 : foo X Y, P f2
-*) 
+ *)
 Inductive foo (X Y : Type) : Type :=
 | bar : X -> foo X Y
 | baz : Y -> foo X Y
@@ -710,4 +712,4 @@ Check le_ind.
 
              But then, by [le_S], [n <= S o'].  [] *)
 
-(** $Date: 2016-09-27 11:35:13 -0400 (Tue, 27 Sep 2016) $ *)
+(** $Date: 2017-08-22 17:13:32 -0400 (Tue, 22 Aug 2017) $ *)

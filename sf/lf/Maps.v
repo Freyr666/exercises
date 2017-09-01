@@ -1,6 +1,6 @@
 (** * Maps: Total and Partial Maps *)
 
-(** Maps (or dictionaries) are ubiquitous data structures both
+(** _Maps_ (or _dictionaries_) are ubiquitous data structures both
     generally and in the theory of programming languages in
     particular; we're going to need them in many places in the coming
     chapters.  They also make a nice case study using ideas we've seen
@@ -118,18 +118,18 @@ Proof.
     maps, where two maps that respond to queries in the same way will
     be represented as literally the same thing (the very same function),
     rather than just "equivalent" data structures.  This, in turn,
-    simplifies proofs that use maps.
+    simplifies proofs that use maps. *)
 
-    We build partial maps in two steps.  First, we define a type of
+(** We build partial maps in two steps.  First, we define a type of
     _total maps_ that return a default value when we look up a key
     that is not present in the map. *)
 
 Definition total_map (A:Type) := id -> A.
 
 (** Intuitively, a total map over an element type [A] is just a
-    function that can be used to look up [id]s, yielding [A]s.
+    function that can be used to look up [id]s, yielding [A]s. *)
 
-    The function [t_empty] yields an empty total map, given a default
+(** The function [t_empty] yields an empty total map, given a default
     element; this map always returns the default element when applied
     to any id. *)
 
@@ -149,16 +149,16 @@ Definition t_update {A:Type} (m : total_map A)
     [fun x' => ...] that behaves like the desired map.
 
     For example, we can build a map taking [id]s to [bool]s, where [Id
-    3] is mapped to [true] and every other key is mapped to [false],
+    "foo"] is mapped to [true] and every other key is mapped to [false],
     like this: *)
 
 Definition examplemap :=
   t_update (t_update (t_empty false) (Id "foo") false)
            (Id "bar") true.
 
-(** This completes the definition of total maps.  Note that we don't
-    need to define a [find] operation because it is just function
-    application! *)
+(** This completes the definition of total maps.  Note that we
+    don't need to define a [find] operation because it is just
+    function application! *)
 
 Example update_example1 : examplemap (Id "baz") = false.
 Proof. reflexivity. Qed.
@@ -173,11 +173,13 @@ Example update_example4 : examplemap (Id "bar") = true.
 Proof. reflexivity. Qed.
 
 (** To use maps in later chapters, we'll need several fundamental
-    facts about how they behave.  Even if you don't work the following
-    exercises, make sure you thoroughly understand the statements of
-    the lemmas!  (Some of the proofs require the functional
-    extensionality axiom, which is discussed in the [Logic]
-    chapter.) *)
+    facts about how they behave. *)
+
+(** Even if you don't work the following exercises, make sure
+    you thoroughly understand the statements of the lemmas! *)
+
+(** (Some of the proofs require the functional extensionality axiom,
+    which is discussed in the [Logic] chapter.) *)
 
 (** **** Exercise: 1 star, optional (t_apply_empty)  *)
 (** First, the empty map returns its default element for all keys: *)
@@ -231,7 +233,7 @@ Proof.
   - reflexivity.
   - reflexivity.
 Qed.
-  
+
 (** For the final two lemmas about total maps, it's convenient to use
     the reflection idioms introduced in chapter [IndProp].  We begin
     by proving a fundamental _reflection lemma_ relating the equality
@@ -245,7 +247,7 @@ Lemma beq_idP : forall x y, reflect (x = y) (beq_id x y).
 Proof.
   intros. apply iff_reflect. symmetry. apply beq_id_true_iff.
 Qed.
-  
+
 (** Now, given [id]s [x1] and [x2], we can use the [destruct (beq_idP
     x1 x2)] to simultaneously perform case analysis on the result of
     [beq_id x1 x2] and generate hypotheses about the equality (in the
@@ -266,7 +268,7 @@ Proof.
   - rewrite e. reflexivity.
   - reflexivity.
 Qed.
-  
+
 (** **** Exercise: 3 stars, recommended (t_update_permute)  *)
 (** Use [beq_idP] to prove one final property of the [update]
     function: If we update a map [m] at two distinct keys, it doesn't
@@ -287,7 +289,7 @@ Proof.
     + reflexivity.
     + reflexivity.
 Qed.
-  
+
 (* ################################################################# *)
 (** * Partial maps *)
 
@@ -353,3 +355,6 @@ Proof.
   intros X v1 v2 x1 x2 m. unfold update.
   apply t_update_permute.
 Qed.
+
+(** $Date: 2017-08-24 17:13:02 -0400 (Thu, 24 Aug 2017) $ *)
+

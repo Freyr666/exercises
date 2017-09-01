@@ -1,8 +1,93 @@
+(** * IndProp: Inductively Defined Propositions *)
+
+Set Warnings "-notation-overridden,-parsing".
 Require Export Logic.
+Require Coq.omega.Omega.
+
+(* ################################################################# *)
+(** * Inductively Defined Propositions *)
+
+(** In the [Logic] chapter, we looked at several ways of writing
+    propositions, including conjunction, disjunction, and quantifiers.
+    In this chapter, we bring a new tool into the mix: _inductive
+    definitions_. *)
+
+(** Recall that we have seen two ways of stating that a number [n] is
+    even: We can say (1) [evenb n = true], or (2) [exists k, n =
+    double k].  Yet another possibility is to say that [n] is even if
+    we can establish its evenness from the following rules:
+
+       - Rule [ev_0]:  The number [0] is even.
+       - Rule [ev_SS]: If [n] is even, then [S (S n)] is even. *)
+
+(** To illustrate how this definition of evenness works, let's
+    imagine using it to show that [4] is even. By rule [ev_SS], it
+    suffices to show that [2] is even. This, in turn, is again
+    guaranteed by rule [ev_SS], as long as we can show that [0] is
+    even. But this last fact follows directly from the [ev_0] rule. *)
+
+(** We will see many definitions like this one during the rest
+    of the course.  For purposes of informal discussions, it is
+    helpful to have a lightweight notation that makes them easy to
+    read and write.  _Inference rules_ are one such notation: *)
+(**
+
+                              ------------                        (ev_0)
+                                 ev 0
+
+                                  ev n
+                             --------------                      (ev_SS)
+                              ev (S (S n))
+*)
+
+(** Each of the textual rules above is reformatted here as an
+    inference rule; the intended reading is that, if the _premises_
+    above the line all hold, then the _conclusion_ below the line
+    follows.  For example, the rule [ev_SS] says that, if [n]
+    satisfies [ev], then [S (S n)] also does.  If a rule has no
+    premises above the line, then its conclusion holds
+    unconditionally.
+
+    We can represent a proof using these rules by combining rule
+    applications into a _proof tree_. Here's how we might transcribe
+    the above proof that [4] is even: *)
+(**
+
+                             ------  (ev_0)
+                              ev 0
+                             ------ (ev_SS)
+                              ev 2
+                             ------ (ev_SS)
+                              ev 4
+*)
+
+(** Why call this a "tree" (rather than a "stack", for example)?
+    Because, in general, inference rules can have multiple premises.
+    We will see examples of this below. *)
+
+(** Putting all of this together, we can translate the definition of
+    evenness into a formal Coq definition using an [Inductive]
+    declaration, where each constructor corresponds to an inference
+    rule: *)
 
 Inductive ev : nat -> Prop :=
 | ev_0 : ev 0
 | ev_SS : forall n : nat, ev n -> ev (S (S n)).
+
+(** This definition is different in one crucial respect from
+    previous uses of [Inductive]: its result is not a [Type], but
+    rather a function from [nat] to [Prop] -- that is, a property of
+    numbers.  Note that we've already seen other inductive definitions
+    that result in functions, such as [list], whose type is [Type ->
+    Type].  What is new here is that, because the [nat] argument of
+    [ev] appears _unnamed_, to the _right_ of the colon, it is allowed
+    to take different values in the types of different constructors:
+    [0] in the type of [ev_0] and [S (S n)] in the type of [ev_SS].
+
+    In contrast, the definition of [list] names the [X] parameter
+    _globally_, to the _left_ of the colon, forcing the result of
+    [nil] and [cons] to be the same ([list X]).  Had we tried to bring
+    [nat] to the left in defining [ev], we would have seen an error: *)
 
 Fail Inductive wrong_ev (n : nat) : Prop :=
 | wrong_ev_0 : wrong_ev 0
@@ -11,11 +96,27 @@ Fail Inductive wrong_ev (n : nat) : Prop :=
         allowed to be used as a bound variable in the type
         of its constructor. *)
 
+(** ("Parameter" here is Coq jargon for an argument on the left of the
+    colon in an [Inductive] definition; "index" is used to refer to
+    arguments on the right of the colon.) *)
+
+(** We can think of the definition of [ev] as defining a Coq property
+    [ev : nat -> Prop], together with theorems [ev_0 : ev 0] and
+    [ev_SS : forall n, ev n -> ev (S (S n))]. *)
+
+(** Such "constructor theorems" have the same status as proven
+    theorems.  In particular, we can use Coq's [apply] tactic with the
+    rule names to prove [ev] for particular numbers... *)
+
 Theorem ev_4 : ev 4.
 Proof. apply ev_SS. apply ev_SS. apply ev_0. Qed.
 
+(** ... or we can use function application syntax: *)
+
 Theorem ev_4' : ev 4.
 Proof. apply (ev_SS 2 (ev_SS 0 ev_0)). Qed.
+
+(** We can also prove theorems that have hypotheses involving [ev]. *)
 
 Theorem ev_plus4 : forall n, ev n -> ev (4 + n).
 Proof.
@@ -23,8 +124,9 @@ Proof.
   apply ev_SS. apply ev_SS. apply Hn.
 Qed.
 
-(** **** Exercise: 1 star (ev_double)  *)
+(** More generally, we can show that any number multiplied by 2 is even: *)
 
+(** **** Exercise: 1 star (ev_double)  *)
 Theorem ev_double : forall n,
   ev (double n).
 Proof.
@@ -32,6 +134,56 @@ Proof.
   - simpl. apply ev_0.
   - simpl. apply ev_SS. apply IH.
 Qed.
+
+(* ################################################################# *)
+(** * Using Evidence in Proofs *)
+
+(** Besides _constructing_ evidence that numbers are even, we can also
+    _reason about_ such evidence.
+
+    Introducing [ev] with an [Inductive] declaration tells Coq not
+    only that the constructors [ev_0] and [ev_SS] are valid ways to
+    build evidence that some number is even, but also that these two
+    constructors are the _only_ ways to build evidence that numbers
+    are even (in the sense of [ev]). *)
+
+(** In other words, if someone gives us evidence [E] for the assertion
+    [ev n], then we know that [E] must have one of two shapes:
+
+      - [E] is [ev_0] (and [n] is [O]), or
+      - [E] is [ev_SS n' E'] (and [n] is [S (S n')], where [E'] is
+        evidence for [ev n']). *)
+
+(** This suggests that it should be possible to analyze a hypothesis
+    of the form [ev n] much as we do inductively defined data
+    structures; in particular, it should be possible to argue by
+    _induction_ and _case analysis_ on such evidence.  Let's look at a
+    few examples to see what this means in practice. *)
+
+(* ================================================================= *)
+(** ** Inversion on Evidence *)
+
+(** Suppose we are proving some fact involving a number [n], and we
+    are given [ev n] as a hypothesis.  We already know how to perform
+    case analysis on [n] using the [inversion] tactic, generating
+    separate subgoals for the case where [n = O] and the case where [n
+    = S n'] for some [n'].  But for some proofs we may instead want to
+    analyze the evidence that [ev n] _directly_.
+
+    By the definition of [ev], there are two cases to consider:
+
+    - If the evidence is of the form [ev_0], we know that [n = 0].
+
+    - Otherwise, the evidence must have the form [ev_SS n' E'], where
+      [n = S (S n')] and [E'] is evidence for [ev n']. *)
+
+(** We can perform this kind of reasoning in Coq, again using
+    the [inversion] tactic.  Besides allowing us to reason about
+    equalities involving constructors, [inversion] provides a
+    case-analysis principle for inductively defined propositions.
+    When used in this way, its syntax is similar to [destruct]: We
+    pass it a list of identifiers separated by [|] characters to name
+    the arguments to each of the possible constructors.  *)
 
 Theorem ev_minus2 : forall n,
   ev n -> ev (pred (pred n)).
@@ -41,6 +193,20 @@ Proof.
   - (* E = ev_0 *) simpl. apply ev_0.
   - (* E = ev_SS n' E' *) simpl. apply E'.  Qed.
 
+(** In words, here is how the inversion reasoning works in this proof:
+
+    - If the evidence is of the form [ev_0], we know that [n = 0].
+      Therefore, it suffices to show that [ev (pred (pred 0))] holds.
+      By the definition of [pred], this is equivalent to showing that
+      [ev 0] holds, which directly follows from [ev_0].
+
+    - Otherwise, the evidence must have the form [ev_SS n' E'], where
+      [n = S (S n')] and [E'] is evidence for [ev n'].  We must then
+      show that [ev (pred (pred (S (S n'))))] holds, which, after
+      simplification, follows directly from [E']. *)
+
+(** This particular proof also works if we replace [inversion] by
+    [destruct]: *)
 
 Theorem ev_minus2' : forall n,
   ev n -> ev (pred (pred n)).
@@ -49,6 +215,43 @@ Proof.
   destruct E as [| n' E'].
   - (* E = ev_0 *) simpl. apply ev_0.
   - (* E = ev_SS n' E' *) simpl. apply E'.  Qed.
+
+(** The difference between the two forms is that [inversion] is more
+    convenient when used on a hypothesis that consists of an inductive
+    property applied to a complex expression (as opposed to a single
+    variable).  Here's is a concrete example.  Suppose that we wanted
+    to prove the following variation of [ev_minus2]: *)
+
+Theorem evSS_ev : forall n,
+  ev (S (S n)) -> ev n.
+
+(** Intuitively, we know that evidence for the hypothesis cannot
+    consist just of the [ev_0] constructor, since [O] and [S] are
+    different constructors of the type [nat]; hence, [ev_SS] is the
+    only case that applies.  Unfortunately, [destruct] is not smart
+    enough to realize this, and it still generates two subgoals.  Even
+    worse, in doing so, it keeps the final goal unchanged, failing to
+    provide any useful information for completing the proof.  *)
+
+Proof.
+  intros n E.
+  destruct E as [| n' E'].
+  - (* E = ev_0. *)
+    (* We must prove that [n] is even from no assumptions! *)
+Abort.
+
+(** What happened, exactly?  Calling [destruct] has the effect of
+    replacing all occurrences of the property argument by the values
+    that correspond to each constructor.  This is enough in the case
+    of [ev_minus2'] because that argument, [n], is mentioned directly
+    in the final goal. However, it doesn't help in the case of
+    [evSS_ev] since the term that gets replaced ([S (S n)]) is not
+    mentioned anywhere. *)
+
+(** The [inversion] tactic, on the other hand, can detect (1) that the
+    first case does not apply, and (2) that the [n'] that appears on
+    the [ev_SS] case must be the same as [n].  This allows us to
+    complete the proof: *)
 
 Theorem evSS_ev : forall n,
   ev (S (S n)) -> ev n.
@@ -59,9 +262,16 @@ Proof.
   apply E'.
 Qed.
 
+(** By using [inversion], we can also apply the principle of explosion
+    to "obviously contradictory" hypotheses involving inductive
+    properties. For example: *)
+
 Theorem one_not_even : ~ ev 1.
 Proof.
   intros H. inversion H. Qed.
+
+(** **** Exercise: 1 star (inversion_practice)  *)
+(** Prove the following results using [inversion]. *)
 
 Theorem SSSSev__even : forall n,
   ev (S (S (S (S n)))) -> ev n.
@@ -79,6 +289,89 @@ Proof.
   inversion H1. inversion H3.
 Qed.
 
+(** The way we've used [inversion] here may seem a bit
+    mysterious at first.  Until now, we've only used [inversion] on
+    equality propositions, to utilize injectivity of constructors or
+    to discriminate between different constructors.  But we see here
+    that [inversion] can also be applied to analyzing evidence for
+    inductively defined propositions.
+
+    Here's how [inversion] works in general.  Suppose the name [I]
+    refers to an assumption [P] in the current context, where [P] has
+    been defined by an [Inductive] declaration.  Then, for each of the
+    constructors of [P], [inversion I] generates a subgoal in which
+    [I] has been replaced by the exact, specific conditions under
+    which this constructor could have been used to prove [P].  Some of
+    these subgoals will be self-contradictory; [inversion] throws
+    these away.  The ones that are left represent the cases that must
+    be proved to establish the original goal.  For those, [inversion]
+    adds all equations into the proof context that must hold of the
+    arguments given to [P] (e.g., [S (S n') = n] in the proof of
+    [evSS_ev]). *)
+
+(** The [ev_double] exercise above shows that our new notion of
+    evenness is implied by the two earlier ones (since, by
+    [even_bool_prop] in chapter [Logic], we already know that
+    those are equivalent to each other). To show that all three
+    coincide, we just need the following lemma: *)
+
+Lemma ev_even_firsttry : forall n,
+  ev n -> exists k, n = double k.
+Proof.
+(* WORKED IN CLASS *)
+
+(** We could try to proceed by case analysis or induction on [n].  But
+    since [ev] is mentioned in a premise, this strategy would probably
+    lead to a dead end, as in the previous section.  Thus, it seems
+    better to first try inversion on the evidence for [ev].  Indeed,
+    the first case can be solved trivially. *)
+
+  intros n E. inversion E as [| n' E'].
+  - (* E = ev_0 *)
+    exists 0. reflexivity.
+  - (* E = ev_SS n' E' *) simpl.
+
+(** Unfortunately, the second case is harder.  We need to show [exists
+    k, S (S n') = double k], but the only available assumption is
+    [E'], which states that [ev n'] holds.  Since this isn't directly
+    useful, it seems that we are stuck and that performing case
+    analysis on [E] was a waste of time.
+
+    If we look more closely at our second goal, however, we can see
+    that something interesting happened: By performing case analysis
+    on [E], we were able to reduce the original result to an similar
+    one that involves a _different_ piece of evidence for [ev]: [E'].
+    More formally, we can finish our proof by showing that
+
+        exists k', n' = double k',
+
+    which is the same as the original statement, but with [n'] instead
+    of [n].  Indeed, it is not difficult to convince Coq that this
+    intermediate result suffices. *)
+
+    assert (I : (exists k', n' = double k') ->
+                (exists k, S (S n') = double k)).
+    { intros [k' Hk']. rewrite Hk'. exists (S k'). reflexivity. }
+    apply I. (* reduce the original goal to the new one *)
+
+Admitted.
+
+(* ================================================================= *)
+(** ** Induction on Evidence *)
+
+(** If this looks familiar, it is no coincidence: We've encountered
+    similar problems in the [Induction] chapter, when trying to use
+    case analysis to prove results that required induction.  And once
+    again the solution is... induction!
+
+    The behavior of [induction] on evidence is the same as its
+    behavior on data: It causes Coq to generate one subgoal for each
+    constructor that could have used to build that evidence, while
+    providing an induction hypotheses for each recursive occurrence of
+    the property in question. *)
+
+(** Let's try our current lemma again: *)
+
 Lemma ev_even : forall n,
   ev n -> exists k, n = double k.
 Proof.
@@ -92,6 +385,14 @@ Proof.
     rewrite Hk'. exists (S k'). reflexivity.
 Qed.
 
+(** Here, we can see that Coq produced an [IH] that corresponds to
+    [E'], the single recursive occurrence of [ev] in its own
+    definition.  Since [E'] mentions [n'], the induction hypothesis
+    talks about [n'], as opposed to [n] or some other number. *)
+
+(** The equivalence between the second and third definitions of
+    evenness now follows. *)
+
 Theorem ev_even_iff : forall n,
   ev n <-> exists k, n = double k.
 Proof.
@@ -99,6 +400,14 @@ Proof.
   - (* -> *) apply ev_even.
   - (* <- *) intros [k Hk]. rewrite Hk. apply ev_double.
 Qed.
+
+(** As we will see in later chapters, induction on evidence is a
+    recurring technique across many areas, and in particular when
+    formalizing the semantics of programming languages, where many
+    properties of interest are defined inductively. *)
+
+(** The following exercises provide simple examples of this
+    technique, to help you familiarize yourself with it. *)
 
 (** **** Exercise: 2 stars (ev_sum)  *)
 Theorem ev_sum : forall n m, ev n -> ev m -> ev (n + m).
@@ -162,18 +471,10 @@ Proof.
     apply IHEn. apply Enm.
 Qed.
 
-
 (** **** Exercise: 3 stars, optional (ev_plus_plus)  *)
 (** This exercise just requires applying existing lemmas.  No
     induction or even case analysis is needed, though some of the
     rewriting may be tedious. *)
-
-Lemma plus_nm_np : forall n m p, n + m = n + p -> m = p.
-Proof.
-  intros. induction n.
-  - simpl in H. apply H.
-  - simpl in H. apply IHn. inversion H. reflexivity.
-Qed.
 
 Theorem ev_plus_plus : forall n m p,
   ev (n+m) -> ev (n+p) -> ev (m+p).
@@ -181,13 +482,47 @@ Proof.
   intros n m p Hnm Hnp.
 Admitted.
 
+(* ################################################################# *)
+(** * Inductive Relations *)
+
+(** A proposition parameterized by a number (such as [ev])
+    can be thought of as a _property_ -- i.e., it defines
+    a subset of [nat], namely those numbers for which the proposition
+    is provable.  In the same way, a two-argument proposition can be
+    thought of as a _relation_ -- i.e., it defines a set of pairs for
+    which the proposition is provable. *)
+
 Module Playground.
+
+(** One useful example is the "less than or equal to" relation on
+    numbers. *)
+
+(** The following definition should be fairly intuitive.  It
+    says that there are two ways to give evidence that one number is
+    less than or equal to another: either observe that they are the
+    same number, or give evidence that the first is less than or equal
+    to the predecessor of the second. *)
 
 Inductive le : nat -> nat -> Prop :=
   | le_n : forall n, le n n
   | le_S : forall n m, (le n m) -> (le n (S m)).
 
 Notation "m <= n" := (le m n).
+
+(** Proofs of facts about [<=] using the constructors [le_n] and
+    [le_S] follow the same patterns as proofs about properties, like
+    [ev] above. We can [apply] the constructors to prove [<=]
+    goals (e.g., to show that [3<=3] or [3<=6]), and we can use
+    tactics like [inversion] to extract information from [<=]
+    hypotheses in the context (e.g., to prove that [(2 <= 1) ->
+    2+2=5].) *)
+
+(** Here are some sanity checks on the definition.  (Notice that,
+    although these are the same kind of simple "unit tests" as we gave
+    for the testing functions we wrote in the first few lectures, we
+    must construct their proofs explicitly -- [simpl] and
+    [reflexivity] don't do the job, because the proofs aren't just a
+    matter of simplifying computations.) *)
 
 Theorem test_le1 :
   3 <= 3.
@@ -206,6 +541,9 @@ Theorem test_le3 :
 Proof.
   (* WORKED IN CLASS *)
   intros H. inversion H. inversion H2.  Qed.
+
+(** The "strictly less than" relation [n < m] can now be defined
+    in terms of [le]. *)
 
 End Playground.
 
@@ -274,7 +612,7 @@ Proof.
   - apply le_n.
   - apply le_S. apply IHle.
 Qed.
-  
+
 Theorem Sn_le_Sm__n_le_m : forall n m,
   S n <= S m -> n <= m.
 Proof.
@@ -284,16 +622,16 @@ Proof.
     + apply le_S. apply le_n.
     + apply H1.
 Qed.
-  
+
 Theorem le_plus_l : forall a b,
   a <= a + b.
 Proof.
   intros.
   induction b.
-  - rewrite <- plus_n_0. apply le_n.
+  - rewrite <- plus_n_O. apply le_n.
   - rewrite <- plus_n_Sm. apply le_S. apply IHb.
 Qed.
-  
+
 Theorem plus_lt : forall n1 n2 m,
   n1 + n2 < m ->
   n1 < m /\ n2 < m.
@@ -303,7 +641,7 @@ Proof.
   split.
   - apply n_le_m__Sn_le_Sm.
     induction n2.
-    + rewrite <- plus_n_0. apply le_n.
+    + rewrite <- plus_n_O. apply le_n.
     + rewrite <- plus_n_Sm. apply le_S. apply IHn2.
   - apply n_le_m__Sn_le_Sm.
     induction n1.
@@ -393,7 +731,7 @@ Qed.
 
 Module R.
 
-(** **** Exercise: 3 stars, recommendedM (R_provability)  *)
+(** **** Exercise: 3 stars, recommended (R_provability)  *)
 (** We can define three-place relations, four-place relations,
     etc., in just the same way as binary relations.  For example,
     consider the following three-place relation on numbers: *)
@@ -418,7 +756,7 @@ Inductive R : nat -> nat -> nat -> Prop :=
       sentence) explain your answer.
 
 (* FILL IN HERE *)
-
+[]
 *)
 
 (** **** Exercise: 3 stars, optional (R_fact)  *)
@@ -459,9 +797,8 @@ Proof.
         + assert (FRSS : fR (S m) (S n) = S (fR m (S n))).
           { simpl. reflexivity. }
           rewrite FRSS. apply c2. apply IHm. }
-Qed.      
-        
-
+Qed.  
+  
 End R.
 
 (** **** Exercise: 4 stars, advanced (subsequence)  *)
@@ -540,8 +877,8 @@ Proof.
     + apply subseq_false. apply IHsubseq. apply H1.
   - intros. apply subseq_false. apply IHsubseq. apply H12.
 Qed.
-  
-(** **** Exercise: 2 stars, optionalM (R_provability2)  *)
+
+(** **** Exercise: 2 stars, optional (R_provability2)  *)
 (** Suppose we give Coq the following definition:
 
     Inductive R : nat -> list nat -> Prop :=
@@ -568,29 +905,22 @@ Qed.
 (** The [ev] property provides a simple example for illustrating
     inductive definitions and the basic techniques for reasoning about
     them, but it is not terribly exciting -- after all, it is
-    equivalent to the two non-inductive of evenness that we had
-    already seen, and does not seem to offer any concrete benefit over
-    them.  To give a better sense of the power of inductive
-    definitions, we now show how to use them to model a classic
-    concept in computer science: _regular expressions_. *)
+    equivalent to the two non-inductive definitions of evenness that
+    we had already seen, and does not seem to offer any concrete
+    benefit over them.  To give a better sense of the power of
+    inductive definitions, we now show how to use them to model a
+    classic concept in computer science: _regular expressions_. *)
 
 (** Regular expressions are a simple language for describing strings,
     defined as follows: *)
 
-Inductive reg_exp (T : Type) : Type :=
-| EmptySet : reg_exp T
-| EmptyStr : reg_exp T
-| Char : T -> reg_exp T
-| App : reg_exp T -> reg_exp T -> reg_exp T
-| Union : reg_exp T -> reg_exp T -> reg_exp T
-| Star : reg_exp T -> reg_exp T.
-
-Arguments EmptySet {T}.
-Arguments EmptyStr {T}.
-Arguments Char {T} _.
-Arguments App {T} _ _.
-Arguments Union {T} _ _.
-Arguments Star {T} _.
+Inductive reg_exp {T : Type} : Type :=
+| EmptySet : reg_exp
+| EmptyStr : reg_exp
+| Char : T -> reg_exp
+| App : reg_exp -> reg_exp -> reg_exp
+| Union : reg_exp -> reg_exp -> reg_exp
+| Star : reg_exp -> reg_exp.
 
 (** Note that this definition is _polymorphic_: Regular
     expressions in [reg_exp T] describe strings with characters drawn
@@ -624,12 +954,12 @@ Arguments Star {T} _.
 
         As a special case, the sequence of strings may be empty, so
         [Star re] always matches the empty string [[]] no matter what
-        [re] is.
+        [re] is. *)
 
-    We can easily translate this informal definition into an
+(** We can easily translate this informal definition into an
     [Inductive] one as follows: *)
 
-Inductive exp_match {T} : list T -> reg_exp T -> Prop :=
+Inductive exp_match {T} : list T -> reg_exp -> Prop :=
 | MEmpty : exp_match [] EmptyStr
 | MChar : forall x, exp_match [x] (Char x)
 | MApp : forall s1 re1 s2 re2,
@@ -755,7 +1085,7 @@ Qed.
     also matches [Star re]. *)
 
 Lemma MStar1 :
-  forall T s (re : reg_exp T) ,
+  forall T s (re : @reg_exp T) ,
     s =~ re ->
     s =~ Star re.
 Proof.
@@ -780,8 +1110,8 @@ Proof.
   intros T s H.
   inversion H.
 Qed.
-  
-Lemma MUnion' : forall T (s : list T) (re1 re2 : reg_exp T),
+
+Lemma MUnion' : forall T (s : list T) (re1 re2 : @reg_exp T),
   s =~ re1 \/ s =~ re2 ->
   s =~ Union re1 re2.
 Proof.
@@ -789,13 +1119,13 @@ Proof.
   - apply (MUnionL s re1). apply H1.
   - apply (MUnionR _ s re2). apply H2.
 Qed.
-  
+
 (** The next lemma is stated in terms of the [fold] function from the
     [Poly] chapter: If [ss : list (list T)] represents a sequence of
     strings [s1, ..., sn], then [fold app ss []] is the result of
     concatenating them all together. *)
 
-Lemma MStar' : forall T (ss : list (list T)) (re : reg_exp T),
+Lemma MStar' : forall T (ss : list (list T)) (re : reg_exp),
   (forall s, In s ss -> s =~ re) ->
   fold app ss [] =~ Star re.
 Proof.
@@ -807,7 +1137,7 @@ Proof.
     + apply IHss. intros. apply H.
       simpl. right. apply H0.
 Qed.
-  
+
 (** **** Exercise: 4 stars (reg_exp_of_list)  *)
 (** Prove that [reg_exp_of_list] satisfies the following
     specification: *)
@@ -841,14 +1171,16 @@ Qed.
 
 (** Since the definition of [exp_match] has a recursive
     structure, we might expect that proofs involving regular
-    expressions will often require induction on evidence.  For
-    example, suppose that we wanted to prove the following intuitive
-    result: If a regular expression [re] matches some string [s], then
-    all elements of [s] must occur somewhere in [re].  To state this
-    theorem, we first define a function [re_chars] that lists all
-    characters that occur in a regular expression: *)
+    expressions will often require induction on evidence. *)
 
-Fixpoint re_chars {T} (re : reg_exp T) : list T :=
+
+(** For example, suppose that we wanted to prove the following
+    intuitive result: If a regular expression [re] matches some string
+    [s], then all elements of [s] must occur somewhere in [re].  To
+    state this theorem, we first define a function [re_chars] that
+    lists all characters that occur in a regular expression: *)
+
+Fixpoint re_chars {T} (re : reg_exp) : list T :=
   match re with
   | EmptySet => []
   | EmptyStr => []
@@ -860,7 +1192,7 @@ Fixpoint re_chars {T} (re : reg_exp T) : list T :=
 
 (** We can then phrase our theorem as follows: *)
 
-Theorem in_re_match : forall T (s : list T) (re : reg_exp T) (x : T),
+Theorem in_re_match : forall T (s : list T) (re : reg_exp) (x : T),
   s =~ re ->
   In x s ->
   In x (re_chars re).
@@ -915,7 +1247,7 @@ Qed.
     regular expression matches some string. Prove that your function
     is correct. *)
 
-Fixpoint re_not_empty {T : Type} (re : reg_exp T) : bool :=
+Fixpoint re_not_empty {T : Type} (re : @reg_exp T) : bool :=
   match re with
   | EmptySet => false
   | EmptyStr => true
@@ -924,8 +1256,8 @@ Fixpoint re_not_empty {T : Type} (re : reg_exp T) : bool :=
   | Union re1 re2 => (re_not_empty re1) || (re_not_empty re2)
   | Star re => true
   end.
-  
-Lemma re_not_empty_correct : forall T (re : reg_exp T),
+
+Lemma re_not_empty_correct : forall T (re : @reg_exp T),
   (exists s, s =~ re) <-> re_not_empty re = true.
 Proof.
   split.
@@ -954,7 +1286,7 @@ Proof.
       * apply IHre2 in H2. inversion H2. exists x. apply MUnionR. apply H0.
     + exists [ ]. apply MStar0.
 Qed.
-  
+
 (* ================================================================= *)
 (** ** The [remember] Tactic *)
 
@@ -964,7 +1296,7 @@ Qed.
     information (much as [destruct] can do), and leave you unable to
     complete the proof.  Here's an example: *)
 
-Lemma star_app: forall T (s1 s2 : list T) (re : reg_exp T),
+Lemma star_app: forall T (s1 s2 : list T) (re : @reg_exp T),
   s1 =~ Star re ->
   s2 =~ Star re ->
   s1 ++ s2 =~ Star re.
@@ -1013,9 +1345,9 @@ Abort.
     We can solve this problem by generalizing over the problematic
     expressions with an explicit equality: *)
 
-Lemma star_app: forall T (s1 s2 : list T) (re re' : reg_exp T),
-  s1 =~ re' ->
+Lemma star_app: forall T (s1 s2 : list T) (re re' : reg_exp),
   re' = Star re ->
+  s1 =~ re' ->
   s2 =~ Star re ->
   s1 ++ s2 =~ Star re.
 
@@ -1028,13 +1360,15 @@ Lemma star_app: forall T (s1 s2 : list T) (re re' : reg_exp T),
     automatically generate such equations for us, avoiding thus the
     need for changing the statements of our theorems. *)
 
+Abort.
+
+
 (** Invoking the tactic [remember e as x] causes Coq to (1) replace
     all occurrences of the expression [e] by the variable [x], and (2)
     add an equation [x = e] to the context.  Here's how we can use it
     to show the above result: *)
-Abort.
 
-Lemma star_app: forall T (s1 s2 : list T) (re : reg_exp T),
+Lemma star_app: forall T (s1 s2 : list T) (re : reg_exp),
   s1 =~ Star re ->
   s2 =~ Star re ->
   s1 ++ s2 =~ Star re.
@@ -1083,7 +1417,7 @@ Qed.
     [MStar'] exercise above), shows that our definition of [exp_match]
     for [Star] is equivalent to the informal one given previously. *)
 
-Lemma MStar'' : forall T (s : list T) (re : reg_exp T),
+Lemma MStar'' : forall T (s : list T) (re : reg_exp),
   s =~ Star re ->
   exists ss : list (list T),
     s = fold app ss []
@@ -1107,8 +1441,6 @@ Proof.
       * apply H3 in Hr. apply Hr.
 Qed.
 
-(* TODO *)
-
 (** **** Exercise: 5 stars, advanced (pumping)  *)
 (** One of the first really interesting theorems in the theory of
     regular expressions is the so-called _pumping lemma_, which
@@ -1124,7 +1456,7 @@ Qed.
 
 Module Pumping.
 
-Fixpoint pumping_constant {T} (re : reg_exp T) : nat :=
+Fixpoint pumping_constant {T} (re : @reg_exp T) : nat :=
   match re with
   | EmptySet => 0
   | EmptyStr => 1
@@ -1163,7 +1495,7 @@ Qed.
     a (constructive!) way to generate strings matching [re] that are
     as long as we like. *)
 
-Lemma pumping : forall T (re : reg_exp T) s,
+Lemma pumping : forall T (re : @reg_exp T) s,
   s =~ re ->
   pumping_constant re <= length s ->
   exists s1 s2 s3,
@@ -1179,7 +1511,7 @@ Lemma pumping : forall T (re : reg_exp T) s,
     free to experiment with it now if you like.  The first case of the
     induction gives an example of how it is used. *)
 
-Require Import Coq.omega.Omega.
+Import Coq.omega.Omega.
 
 Proof.
   intros T re s Hmatch.
@@ -1189,10 +1521,7 @@ Proof.
        | re | s1 s2 re Hmatch1 IH1 Hmatch2 IH2 ].
   - (* MEmpty *)
     simpl. omega.
-  - (* MChar *)
-    simpl. omega.
-  - (* MApp *)
-    intros. Admitted.
+  (* FILL IN HERE *) Admitted.
 
 End Pumping.
 (** [] *)
@@ -1202,8 +1531,8 @@ End Pumping.
 
 (** We've seen in the [Logic] chapter that we often need to
     relate boolean computations to statements in [Prop].  But
-    performing this conversion in the way we did it there can result
-    in tedious proof scripts.  Consider the proof of the following
+    performing this conversion as we did it there can result in
+    tedious proof scripts.  Consider the proof of the following
     theorem: *)
 
 Theorem filter_not_empty_In : forall n l,
@@ -1226,15 +1555,15 @@ Qed.
     the [beq_nat_true_iff] lemma to the equation generated by
     destructing [beq_nat n m], to convert the assumption [beq_nat n m
     = true] into the assumption [n = m]; then we had to [rewrite]
-    using this assumption to complete the case.
+    using this assumption to complete the case. *)
 
-    We can streamline this by defining an inductive proposition that
+(** We can streamline this by defining an inductive proposition that
     yields a better case-analysis principle for [beq_nat n m].
     Instead of generating an equation such as [beq_nat n m = true],
     which is generally not directly useful, this principle gives us
-    right away the assumption we really need: [n = m].
+    right away the assumption we really need: [n = m]. *)
 
-    We'll actually define something a bit more general, which can be
+(** We'll actually define something a bit more general, which can be
     used with arbitrary properties (and not just equalities): *)
 
 Module FirstTry.
@@ -1243,13 +1572,13 @@ Inductive reflect : Prop -> bool -> Prop :=
 | ReflectT : forall (P:Prop), P -> reflect P true
 | ReflectF : forall (P:Prop), ~ P -> reflect P false.
 
+End FirstTry.
+
 (** Before explaining this, let's rearrange it a little: Since the
     types of both [ReflectT] and [ReflectF] begin with
     [forall (P:Prop)], we can make the definition a bit more readable
     and easier to work with by making [P] a parameter of the whole
     Inductive declaration. *)
-
-End FirstTry.
 
 Inductive reflect (P : Prop) : bool -> Prop :=
 | ReflectT : P -> reflect P true
@@ -1257,13 +1586,13 @@ Inductive reflect (P : Prop) : bool -> Prop :=
 
 (** The [reflect] property takes two arguments: a proposition
     [P] and a boolean [b].  Intuitively, it states that the property
-    [P] is _reflected_ in (i.e., equivalent to) the boolean [b]: [P]
-    holds if and only if [b = true].  To see this, notice that, by
-    definition, the only way we can produce evidence that [reflect P
-    true] holds is by showing that [P] is true and using the
-    [ReflectT] constructor.  If we invert this statement, this means
-    that it should be possible to extract evidence for [P] from a
-    proof of [reflect P true].  Conversely, the only way to show
+    [P] is _reflected_ in (i.e., equivalent to) the boolean [b]: that
+    is, [P] holds if and only if [b = true].  To see this, notice
+    that, by definition, the only way we can produce evidence that
+    [reflect P true] holds is by showing that [P] is true and using
+    the [ReflectT] constructor.  If we invert this statement, this
+    means that it should be possible to extract evidence for [P] from
+    a proof of [reflect P true].  Conversely, the only way to show
     [reflect P false] is by combining evidence for [~ P] with the
     [ReflectF] constructor.
 
@@ -1287,17 +1616,17 @@ Proof.
     + exfalso. apply H0. apply Hp.
   - intros. rewrite H0 in H. inversion H. apply H1.
 Qed.
-  
+
 (** The advantage of [reflect] over the normal "if and only if"
     connective is that, by destructing a hypothesis or lemma of the
     form [reflect P b], we can perform case analysis on [b] while at
     the same time generating appropriate hypothesis in the two
     branches ([P] in the first subgoal and [~ P] in the second). *)
 
+
 Lemma beq_natP : forall n m, reflect (n = m) (beq_nat n m).
 Proof.
-  intros n m.
-  apply iff_reflect. rewrite beq_nat_true_iff. reflexivity.
+  intros n m. apply iff_reflect. rewrite beq_nat_true_iff. reflexivity.
 Qed.
 
 (** The new proof of [filter_not_empty_In] now goes as follows.
@@ -1352,11 +1681,12 @@ Proof.
       * unfold not. intros. apply H. symmetry. apply H1.
       * apply IHl. apply H0.
 Qed.
-  
-(** This technique gives us only a small gain in convenience for
-    the proofs we've seen here, but using [reflect] consistently often
+
+(** Here, this technique gives us a fairly small gain in convenience
+    for the proofs we've seen, but using [reflect] consistently often
     leads to noticeably shorter and clearer scripts as proofs get
-    larger.  We'll see many more examples in later chapters.
+    larger.  We'll see many more examples in later chapters and in
+    _Programming Language Foundations_.
 
     The use of the [reflect] property was popularized by _SSReflect_,
     a Coq library that has been used to formalize important results in
@@ -1581,4 +1911,4 @@ Proof.
 (** [] *)
 
 
-(** $Date: 2016-12-17 23:53:20 -0500 (Sat, 17 Dec 2016) $ *)
+(** $Date: 2017-08-22 17:13:32 -0400 (Tue, 22 Aug 2017) $ *)
