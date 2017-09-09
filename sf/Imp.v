@@ -765,15 +765,47 @@ Qed.
     [aevalR], and prove that it is equivalent to [beval].*)
 
 Inductive bevalR: bexp -> bool -> Prop :=
-(* FILL IN HERE *)
+| E_BTrue  : bevalR BTrue true 
+| E_BFalse : bevalR BFalse false
+| E_BEq    : forall (a1 a2 : aexp) (n1 n2 : nat),
+    aevalR a1 n1 ->
+    aevalR a2 n2 ->
+    bevalR (BEq a1 a2) (beq_nat n1 n2)
+| E_BLe    : forall (a1 a2 : aexp) (n1 n2 : nat),
+    aevalR a1 n1 ->
+    aevalR a2 n2 ->
+    bevalR (BLe a1 a2) (leb n1 n2)
+| E_BNot    : forall (e : bexp) (b : bool),
+    bevalR e b ->
+    bevalR (BNot e) (negb b)
+| E_BAnd    : forall (e1 e2 : bexp) (b1 b2 : bool),
+    bevalR e1 b1 ->
+    bevalR e2 b2 ->
+    bevalR (BAnd e1 e2) (andb b1 b2)
 .
 
 Lemma beval_iff_bevalR : forall b bv,
   bevalR b bv <-> beval b = bv.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  split.
+  (* -> *)
+  - intros. induction H;
+    (* True False *)
+    simpl; try reflexivity;
+    (* Eq Le *)
+    repeat (apply aeval_iff_aevalR in H; apply aeval_iff_aevalR in H0; rewrite H; rewrite H0; reflexivity);
+    (* Not And *)
+    subst; reflexivity.
+  (* <- *)
+  - intros. induction H; simpl.
+    induction b.
+    + constructor.
+    + constructor.
+    + constructor; apply aeval_iff_aevalR; reflexivity.
+    + constructor; apply aeval_iff_aevalR; reflexivity.
+    + apply E_BNot in IHb. apply IHb.
+    + apply E_BAnd. apply IHb1. apply IHb2.
+Qed.
 End AExp.
 
 (* ================================================================= *)
