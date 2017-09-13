@@ -30,6 +30,8 @@ Require Import Coq.Lists.List.
 Require Import Coq.omega.Omega.
 Import ListNotations.
 
+
+Require Import Basics.
 Require Import Maps.
 
 (* ################################################################# *)
@@ -1438,8 +1440,14 @@ Proof.
 (** **** Exercise: 3 stars, recommended (XtimesYinZ_spec)  *)
 (** State and prove a specification of [XtimesYinZ]. *)
 
-(* FILL IN HERE *)
-(** [] *)
+Theorem XtimesYinZ_spec : forall st n m st',
+    st X = n ->
+    st Y = m ->
+    XtimesYinZ / st \\ st' ->
+    st' Z = n * m.
+Proof.
+  intros st n m st' HX HY Heval.
+  inversion Heval. subst. simpl. apply t_update_eq. Qed.
 
 (** **** Exercise: 3 stars, recommended (loop_never_stops)  *)
 Theorem loop_never_stops : forall st st',
@@ -1453,9 +1461,11 @@ Proof.
       [loopdef] terminates.  Most of the cases are immediately
       contradictory (and so can be solved in one step with
       [inversion]). *)
-
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  induction contra; inversion Heqloopdef.
+  (* while True *)
+  - rewrite H1 in H. inversion H.
+  - apply IHcontra2. apply Heqloopdef.
+Qed.
 
 (** **** Exercise: 3 stars (no_whilesR)  *)
 (** Consider the following function: *)
@@ -1480,22 +1490,42 @@ Fixpoint no_whiles (c : com) : bool :=
     while loops.  Then prove its equivalence with [no_whiles]. *)
 
 Inductive no_whilesR: com -> Prop :=
- (* FILL IN HERE *)
+| NW_Skip : no_whilesR SKIP
+| NW_Ass  : forall a b, no_whilesR (a ::= b)
+| NW_Seq  : forall c1 c2,
+    no_whilesR c1 -> no_whilesR c2 -> no_whilesR (c1 ;; c2)
+| NW_If   : forall b c1 c2,
+    no_whilesR c1 -> no_whilesR c2
+    -> no_whilesR (IFB b THEN c1 ELSE c2 FI)
 .
+
 
 Theorem no_whiles_eqv:
    forall c, no_whiles c = true <-> no_whilesR c.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  split.
+  (* -> *)
+  - intros. induction c; inversion H; constructor.
+    (* Seq first *)
+    + apply IHc1. rewrite andb_commutative in H1. apply andb_true_elim2 in H1. apply H1.
+    + apply IHc2. apply andb_true_elim2 in H1. apply H1.
+    + apply IHc1. rewrite andb_commutative in H1. apply andb_true_elim2 in H1. apply H1.
+    + apply IHc2. apply andb_true_elim2 in H1. apply H1.
+  - intros. induction H; simpl; try reflexivity;
+              rewrite IHno_whilesR1; rewrite IHno_whilesR2; reflexivity.
+Qed.
 
 (** **** Exercise: 4 stars (no_whiles_terminating)  *)
 (** Imp programs that don't involve while loops always terminate.
     State and prove a theorem [no_whiles_terminating] that says this. *)
 (** Use either [no_whiles] or [no_whilesR], as you prefer. *)
 
-(* FILL IN HERE *)
-(** [] *)
+Theorem no_whiles_terminating :
+  forall c st st', no_whilesR c -> c / st \\ st' -> True.
+Proof.
+  intros. induction H.
+  - inversion H0.
+Admitted.
 
 (* ################################################################# *)
 (** * Additional Exercises *)
