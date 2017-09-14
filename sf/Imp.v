@@ -1521,11 +1521,31 @@ Qed.
 (** Use either [no_whiles] or [no_whilesR], as you prefer. *)
 
 Theorem no_whiles_terminating :
-  forall c st st', no_whilesR c -> c / st \\ st' -> True.
+  forall c st, no_whilesR c -> exists st', c / st \\ st'.
 Proof.
-  intros. induction H.
-  - inversion H0.
-Admitted.
+  intros. generalize dependent st. induction H.
+  - intros. exists st. constructor.
+  - intros. exists (t_update st a (aeval st b)). constructor. reflexivity.
+  - intros.
+    assert (exists st', c1 / st \\ st').
+    { apply IHno_whilesR1. }
+    inversion H1.
+    assert (exists st'', c2 / x \\ st'').
+    { apply IHno_whilesR2. }
+    inversion H3.
+    exists x0. apply E_Seq with x.
+    + apply H2.
+    + apply H4.
+  - intros.
+    assert (exists st', c1 / st \\ st').
+    { apply IHno_whilesR1. }
+    assert (exists st', c2 / st \\ st').
+    { apply IHno_whilesR2. }
+    remember (beval st b).
+    destruct b0.
+    + inversion H1. exists x. apply E_IfTrue. symmetry. apply Heqb0. apply H3.
+    + inversion H2. exists x. apply E_IfFalse. symmetry. apply Heqb0. apply H3.
+Qed.
 
 (* ################################################################# *)
 (** * Additional Exercises *)
