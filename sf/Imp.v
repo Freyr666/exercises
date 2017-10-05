@@ -1683,9 +1683,6 @@ Proof. simpl. reflexivity. Qed.
     more general lemma to get a usable induction hypothesis; the main
     theorem will then be a simple corollary of this lemma. *)
 
-Lemma s_execute_result : forall (st : state) (s : sinstr),
-     s  s_execute st [] (s_compile e) = 
-
 Theorem s_compile_correct : forall (st : state) (e : aexp),
   s_execute st [] (s_compile e) = [ aeval st e ].
 Proof.
