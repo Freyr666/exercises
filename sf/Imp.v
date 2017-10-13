@@ -1617,23 +1617,20 @@ Fixpoint s_execute (st : state) (stack : list nat)
   | (SLoad n)::tl => s_execute st ((st n)::stack) tl
   | SPlus::tl     =>
     let ns := (match stack with
-               | [] => []
-               | [x] => [x]
                | x::y::tl => (y + x)::tl
+               | _ => stack
                end)
     in s_execute st ns tl
   | SMinus::tl    =>
     let ns := (match stack with
-               | [] => []
-               | [x] => [x]
                | x::y::tl => (y - x)::tl
+               | _ => stack
                end)
     in s_execute st ns tl
   | SMult::tl     =>
     let ns := (match stack with
-               | [] => []
-               | [x] => [x]
                | x::y::tl => (y * x)::tl
+               | _ => stack
                end)
     in s_execute st ns tl
   end.
@@ -1683,11 +1680,28 @@ Proof. simpl. reflexivity. Qed.
     more general lemma to get a usable induction hypothesis; the main
     theorem will then be a simple corollary of this lemma. *)
 
+Lemma s_execute_concat : forall (st : state) (p1 p2 : list sinstr) (stack : list nat),
+    s_execute st stack (p1 ++ p2) = s_execute st (s_execute st stack p1) p2.
+Proof.
+  intros. generalize dependent stack. induction p1.
+  - simpl. reflexivity.
+  - induction a; intros; simpl; apply IHp1.
+Qed.
+    
+Lemma s_compile_correct_gen : forall (st : state) (e : aexp) (stack : list nat),
+    s_execute st stack (s_compile e) = (aeval st e) :: stack.
+Proof.
+  intros. generalize dependent stack.
+  induction e; repeat (intros; reflexivity);
+  repeat (intros; simpl; rewrite s_execute_concat; rewrite s_execute_concat;
+          rewrite IHe2; rewrite IHe1; reflexivity).
+Qed.
+
 Theorem s_compile_correct : forall (st : state) (e : aexp),
   s_execute st [] (s_compile e) = [ aeval st e ].
 Proof.
-  intros. induction e; unfold s_compile; simpl; repeat reflexivity.
-  - fold s_compile. 
+  intros. apply s_compile_correct_gen.
+Qed.
   
 (** **** Exercise: 3 stars, optional (short_circuit)  *)
 (** Most modern programming languages use a "short-circuit" evaluation
