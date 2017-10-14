@@ -11,3 +11,5 @@ coqc Maps.v
 coqc ProofObjects.v
 coqc IndPrinciples.v
 coqc Rel.v
+coqc Imp.v
+coqc ImpParser.v
