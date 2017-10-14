@@ -13,3 +13,4 @@ coqc IndPrinciples.v
 coqc Rel.v
 coqc Imp.v
 coqc ImpParser.v
+coqc ImpCEvalFun.v
