@@ -234,15 +234,15 @@ Qed.
     guard. *)
 
 Lemma negb_false : forall b,
-    Basics.negb b = Basics.false -> b = Basics.true.
+    negb b = false -> b = true.
 Proof.
   intros. induction b.
   - reflexivity.
   - inversion H.
 Qed.
   
-Lemma negb_true : forall (b : Basics.bool),
-    Basics.negb b = Basics.true -> b = Basics.false.
+Lemma negb_true : forall (b : bool),
+    negb b = true -> b = false.
 Proof.
   intros. induction b. inversion H. reflexivity.
 Qed.
@@ -723,8 +723,17 @@ Theorem CSeq_congruence : forall c1 c1' c2 c2',
   cequiv c1 c1' -> cequiv c2 c2' ->
   cequiv (c1;;c2) (c1';;c2').
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  unfold cequiv. intros c1 c1' c2 c2' Hc1 Hc2 st st'.
+  split; intros Hseq.
+  - inversion Hseq. subst.
+    apply Hc1 in H1. apply Hc2 in H4.
+    apply E_Seq with st'0.
+    apply H1. apply H4.
+  - inversion Hseq. subst.
+    apply Hc1 in H1. apply Hc2 in H4.
+    apply E_Seq with st'0.
+    apply H1. apply H4.
+Qed.
 
 (** **** Exercise: 3 stars (CIf_congruence)  *)
 Theorem CIf_congruence : forall b b' c1 c1' c2 c2',
@@ -732,8 +741,28 @@ Theorem CIf_congruence : forall b b' c1 c1' c2 c2',
   cequiv (IFB b THEN c1 ELSE c2 FI)
          (IFB b' THEN c1' ELSE c2' FI).
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  unfold bequiv,cequiv.
+  intros b b' c1 c1' c2 c2' Hb Hc1 Hc2 st st'.
+  split; intros Hif.
+  - inversion Hif.
+    + subst.
+      rewrite Hb in H4. apply Hc1 in H5.
+      apply E_IfTrue.
+      apply H4. apply H5.
+    + subst.
+      rewrite Hb in H4. apply Hc2 in H5.
+      apply E_IfFalse.
+      apply H4. apply H5.
+  - inversion Hif.
+    + subst.
+      rewrite <- Hb in H4. apply Hc1 in H5.
+      apply E_IfTrue.
+      apply H4. apply H5.
+    + subst.
+      rewrite <- Hb in H4. apply Hc2 in H5.
+      apply E_IfFalse.
+      apply H4. apply H5.
+Qed.
 
 (** For example, here are two equivalent programs and a proof of their
     equivalence... *)
@@ -1080,6 +1109,7 @@ Proof.
        completing the case.  []
 *)
 
+
 Theorem fold_constants_bexp_sound:
   btrans_sound fold_constants_bexp.
 Proof.
@@ -1106,9 +1136,17 @@ Proof.
 
     (* The only interesting case is when both a1 and a2
        become constants after folding *)
-      simpl. destruct (beq_nat n n0); reflexivity.
+    simpl; destruct (beq_nat n n0); reflexivity.
   - (* BLe *)
-    (* FILL IN HERE *) admit.
+    rename a into a1. rename a0 into a2. simpl.
+    remember (fold_constants_aexp a1) as a1' eqn:Heqa1'.
+    remember (fold_constants_aexp a2) as a2' eqn:Heqa2'.
+    replace (aeval st a1) with (aeval st a1') by
+        (subst a1'; rewrite <- fold_constants_aexp_sound; reflexivity).
+    replace (aeval st a2) with (aeval st a2') by
+        (subst a2'; rewrite <- fold_constants_aexp_sound; reflexivity).
+    destruct a1'; destruct a2'; try reflexivity.
+    simpl; destruct (leb n n0); reflexivity.
   - (* BNot *)
     simpl. remember (fold_constants_bexp b) as b' eqn:Heqb'.
     rewrite IHb.
@@ -1119,9 +1157,8 @@ Proof.
     remember (fold_constants_bexp b2) as b2' eqn:Heqb2'.
     rewrite IHb1. rewrite IHb2.
     destruct b1'; destruct b2'; reflexivity.
-(* FILL IN HERE *) Admitted.
-(** [] *)
-
+Qed.
+    
 (** **** Exercise: 3 stars (fold_constants_com_sound)  *)
 (** Complete the [WHILE] case of the following proof. *)
 
@@ -1149,9 +1186,14 @@ Proof.
       apply trans_cequiv with c2; try assumption.
       apply IFB_false; assumption.
   - (* WHILE *)
-    (* FILL IN HERE *) Admitted.
-(** [] *)
-
+    assert (bequiv b (fold_constants_bexp b)). {
+      apply fold_constants_bexp_sound. }
+    destruct (fold_constants_bexp b) eqn:Heqb;
+      try (apply CWhile_congruence; assumption).
+    + apply (WHILE_true b c). apply H.
+    + apply (WHILE_false b c). apply H.
+Qed.
+      
 (* ----------------------------------------------------------------- *)
 (** *** Soundness of (0 + n) Elimination, Redux *)
 

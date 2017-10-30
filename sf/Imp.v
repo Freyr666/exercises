@@ -30,8 +30,6 @@ Require Import Coq.Lists.List.
 Require Import Coq.omega.Omega.
 Import ListNotations.
 
-
-Require Import Basics.
 Require Import Maps.
 
 (* ################################################################# *)
@@ -1499,6 +1497,26 @@ Inductive no_whilesR: com -> Prop :=
     -> no_whilesR (IFB b THEN c1 ELSE c2 FI)
 .
 
+Theorem andb_commutative : forall b c, andb b c = andb c b.
+Proof.
+  intros b c. destruct b.
+  - destruct c.
+    + reflexivity.
+    + reflexivity.
+  - destruct c.
+    + reflexivity.
+    + reflexivity.
+Qed.
+
+Theorem andb_true_elim2 : forall b c : bool,
+  andb b c = true -> c = true.
+Proof.
+  intros b c H. destruct c.
+  - reflexivity.
+  - rewrite <- H. destruct b.
+    + reflexivity.
+    + reflexivity.
+Qed.
 
 Theorem no_whiles_eqv:
    forall c, no_whiles c = true <-> no_whilesR c.
