@@ -1238,8 +1238,135 @@ Qed.
    - Prove that the optimizer is sound.  (This part should be _very_
      easy.)  *)
 
-(* FILL IN HERE *)
-(** [] *)
+Fixpoint optimize_0plus_aexp (a : aexp) : aexp :=
+  match a with
+  | ANum n      => ANum n
+  | AId i       => AId i
+  | APlus (ANum 0) a2 => (optimize_0plus_aexp a2)
+  | APlus a1 a2 =>
+    APlus (optimize_0plus_aexp a1) (optimize_0plus_aexp a2)
+  | AMinus a1 a2 =>
+    AMinus (optimize_0plus_aexp a1) (optimize_0plus_aexp a2)
+  | AMult a1 a2 =>
+    AMult (optimize_0plus_aexp a1) (optimize_0plus_aexp a2) 
+  end.
+  
+Fixpoint optimize_0plus_bexp (b : bexp) : bexp :=
+  match b with
+  | BTrue     => BTrue
+  | BFalse    => BFalse
+  | BEq a1 a2 =>
+    BEq (optimize_0plus_aexp a1) (optimize_0plus_aexp a2)
+  | BLe a1 a2 =>
+    BLe (optimize_0plus_aexp a1) (optimize_0plus_aexp a2)
+  | BNot b1 => BNot (optimize_0plus_bexp b1)
+  | BAnd b1 b2 =>
+    BAnd (optimize_0plus_bexp b1) (optimize_0plus_bexp b2)
+  end.
+
+Fixpoint optimize_0plus_com (c : com) : com :=
+  match c with
+  | SKIP => SKIP
+  | CAss i a =>
+    CAss i (optimize_0plus_aexp a)
+  | c1 ;; c2 =>
+    (optimize_0plus_com c1) ;; (optimize_0plus_com c2)
+  | IFB b THEN c1 ELSE c2 FI =>
+    let b' := optimize_0plus_bexp b in
+    let c'1 := optimize_0plus_com c1 in
+    let c'2 := optimize_0plus_com c2 in
+    IFB b' THEN c'1 ELSE c'2 FI
+  | WHILE b DO c END =>
+    let b' := optimize_0plus_bexp b in
+    let c' := optimize_0plus_com c in
+    WHILE b' DO c' END
+  end.
+
+Lemma plus_Sn_m : forall n m, S (n + m) = S n + m.
+Proof. reflexivity. Qed.
+
+Theorem optimize_0plus_aexp_sound :
+  atrans_sound optimize_0plus_aexp.
+Proof.
+  unfold atrans_sound. intros.
+  induction a; simpl;
+    try (apply refl_aequiv);
+    try (destruct (optimize_0plus_aexp a1);
+         destruct (optimize_0plus_aexp a2);
+         unfold aequiv; intros;
+         unfold aequiv in IHa1;
+         unfold aequiv in IHa2;
+         simpl; simpl in IHa1; simpl in IHa2;
+         rewrite IHa1; rewrite IHa2; reflexivity).
+  induction a1;
+    try (destruct n;
+         simpl;
+         destruct (optimize_0plus_aexp (ANum 0));
+         destruct (optimize_0plus_aexp a2);
+         unfold aequiv;
+         unfold aequiv in IHa1; simpl in IHa1;
+         unfold aequiv in IHa2; simpl in IHa2;
+         simpl; intros; rewrite IHa2; reflexivity);
+    try (unfold aequiv;
+         simpl; intros; unfold aequiv in IHa2;
+         rewrite IHa2; reflexivity);
+    repeat (unfold aequiv;
+            destruct optimize_0plus_aexp;
+            destruct optimize_0plus_aexp;
+            destruct (optimize_0plus_aexp a1_1);
+            destruct (optimize_0plus_aexp a1_1);
+            simpl; intros;
+            unfold aequiv in IHa2; simpl in IHa2;
+            unfold aequiv in IHa1; simpl in IHa1;
+            rewrite IHa2; rewrite IHa1; reflexivity).
+Qed.
+
+Theorem optimize_0plus_bexp_sound :
+  btrans_sound optimize_0plus_bexp.
+Proof.
+  unfold btrans_sound.
+  intros. unfold bequiv. intros.
+  induction b; try (reflexivity);
+  try (rename a into a1; rename a0 into a2; simpl;
+    remember (optimize_0plus_aexp a1) as a1' eqn:Heqa1';
+    remember (optimize_0plus_aexp a2) as a2' eqn:Heqa2';
+    replace (aeval st a1) with (aeval st a1') by
+       (subst a1'; rewrite <- optimize_0plus_aexp_sound; reflexivity);
+    replace (aeval st a2) with (aeval st a2') by
+        (subst a2'; rewrite <- optimize_0plus_aexp_sound; reflexivity);
+    reflexivity).
+  - simpl. rewrite IHb. reflexivity.
+  - simpl. rewrite IHb1. rewrite IHb2. reflexivity.
+Qed.
+
+Theorem optimize_0plus_com_sound :
+  ctrans_sound optimize_0plus_com.
+Proof.
+  unfold ctrans_sound. intros.
+  induction c; simpl.
+  - apply refl_cequiv.
+  - apply CAss_congruence. apply optimize_0plus_aexp_sound.
+  - apply CSeq_congruence. apply IHc1. apply IHc2.
+  - apply CIf_congruence. apply optimize_0plus_bexp_sound.
+    apply IHc1. apply IHc2.
+  - apply CWhile_congruence. apply optimize_0plus_bexp_sound.
+    apply IHc.
+Qed.
+
+Definition optimize_fold_and_0plus (c : com) : com :=
+  optimize_0plus_com (fold_constants_com c).
+
+Theorem optimize_fold_and_0plus_sound :
+  ctrans_sound optimize_fold_and_0plus.
+Proof.
+  unfold ctrans_sound.
+  unfold optimize_fold_and_0plus.
+  intros.
+  remember (fold_constants_com c) as c'.
+  apply trans_cequiv with c'.
+  - rewrite Heqc'. apply fold_constants_com_sound.
+  - apply optimize_0plus_com_sound.
+Qed.  
 
 (* ################################################################# *)
 (** * Proving That Programs Are _Not_ Equivalent *)
@@ -1400,7 +1527,10 @@ Lemma aeval_weakening : forall i st a ni,
   var_not_used_in_aexp i a ->
   aeval (t_update st i ni) a = aeval st a.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros i st a ni H.
+  inversion H; simpl.
+  - reflexivity.
+  - 
 
 (** Using [var_not_used_in_aexp], formalize and prove a correct verson
     of [subst_equiv_property]. *)
