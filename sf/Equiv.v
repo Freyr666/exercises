@@ -1528,25 +1528,77 @@ Lemma aeval_weakening : forall i st a ni,
   aeval (t_update st i ni) a = aeval st a.
 Proof.
   intros i st a ni H.
-  inversion H; simpl.
-  - reflexivity.
-  - 
-
+  induction H; simpl;
+  try reflexivity;
+  try (apply t_update_neq; apply H);
+  try (rewrite IHvar_not_used_in_aexp1;
+       rewrite IHvar_not_used_in_aexp2;
+       reflexivity).
+Qed.
+  
 (** Using [var_not_used_in_aexp], formalize and prove a correct verson
     of [subst_equiv_property]. *)
 
-(* FILL IN HERE *)
-(** [] *)
-
+Theorem subst_equiv_property_correct : forall i1 i2 a1 a2,
+    var_not_used_in_aexp i1 a2 ->
+    cequiv (i1 ::= a1;; i2 ::= a2)
+           (i1 ::= a1;; i2 ::= subst_aexp i1 a1 a2).
+Proof.
+  intros.
+  apply CSeq_congruence.
+  - apply CAss_congruence.
+    apply refl_aequiv.
+  - apply CAss_congruence.
+    unfold aequiv.
+    intros.
+    unfold subst_aexp.
+    induction H;
+    try reflexivity;
+    try (simpl;
+         rewrite IHvar_not_used_in_aexp1;
+         rewrite IHvar_not_used_in_aexp2;
+         reflexivity).
+    + destruct (beq_idP i1 Y).
+      destruct H. apply e.
+      reflexivity.
+Qed.
+    
 (** **** Exercise: 3 stars (inequiv_exercise)  *)
 (** Prove that an infinite loop is not equivalent to [SKIP] *)
 
 Theorem inequiv_exercise:
   ~ cequiv (WHILE BTrue DO SKIP END) SKIP.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  unfold not. intros Contra.
+  remember (WHILE BTrue DO SKIP END) as c1.
+  remember SKIP as c2.
+  remember (WHILE BFalse DO c2 END) as c3.
+  (* if (cequiv c1 c2) (is given) and (cequiv c2 c3) (which is true) 
+     then by trans_cequiv (cequiv c1 c3) (which is obviously false)
+    therefore ~(cequiv c1 c2) *)
+  apply (trans_cequiv c1 c2 c3) in Contra.
+  (* cequiv c1 c3 *)
+  - subst.
+    unfold cequiv in Contra.
+    remember empty_state as st.
+    remember st as st'.
+    assert (Heq : WHILE BTrue DO SKIP END / st \\ st' -> False).
+    { intros. apply (WHILE_true_nonterm BTrue SKIP st st').
+      apply refl_bequiv. apply H. }
+    destruct Heq.
+    (* proof c3 is True *)
+    + apply Contra.
+      apply WHILE_false.
+      apply refl_bequiv.
+      rewrite Heqst'. apply E_Skip.
+  (* cequiv c1 c2 *)
+  - rewrite Heqc2. rewrite Heqc3.
+    remember BFalse as b.
+    unfold cequiv.
+    intros. symmetry. apply WHILE_false.
+    rewrite Heqb. apply refl_bequiv.
+Qed.
+    
 (* ################################################################# *)
 (** * Extended Exercise: Nondeterministic Imp *)
 
@@ -1651,7 +1703,8 @@ Inductive ceval : com -> state -> state -> Prop :=
       c1 / st \\ st' ->
       (WHILE b1 DO c1 END) / st' \\ st'' ->
       (WHILE b1 DO c1 END) / st \\ st''
-(* FILL IN HERE *)
+  | E_Havoc : forall (st : state) (n : nat) (X : id),
+      (HAVOC X) / st \\ (t_update st X n)
 
   where "c1 '/' st '\\' st'" := (ceval c1 st st').
 
@@ -1659,14 +1712,11 @@ Inductive ceval : com -> state -> state -> Prop :=
     your definition: *)
 
 Example havoc_example1 : (HAVOC X) / empty_state \\ t_update empty_state X 0.
-Proof.
-(* FILL IN HERE *) Admitted.
+Proof. apply E_Havoc. Qed.
 
 Example havoc_example2 :
   (SKIP;; HAVOC Z) / empty_state \\ t_update empty_state Z 42.
-Proof.
-(* FILL IN HERE *) Admitted.
-(** [] *)
+Proof. apply E_Seq with empty_state. apply E_Skip. apply E_Havoc. Qed.
 
 (** Finally, we repeat the definition of command equivalence from above: *)
 
@@ -1688,12 +1738,25 @@ Definition pYX :=
 (** If you think they are equivalent, prove it. If you think they are
     not, prove that. *)
 
-
 Theorem pXY_cequiv_pYX :
   cequiv pXY pYX \/ ~cequiv pXY pYX.
-Proof. (* FILL IN HERE *) Admitted.
-(** [] *)
-
+Proof.
+  left. unfold cequiv.
+  intros. split; intros H;
+  unfold pXY in H; unfold pYX;
+  unfold pYX in H; unfold pXY;
+  inversion H; subst;
+  inversion H2; subst;
+  inversion H5; subst;
+  rewrite t_update_permute.
+  - apply E_Seq with (t_update st Y n0);
+    repeat apply E_Havoc.
+  - unfold not. intros. inversion H0.
+  - apply E_Seq with (t_update st X n0);
+    repeat apply E_Havoc.
+  - unfold not. intros. inversion H0.
+Qed.
+    
 (** **** Exercise: 4 stars, optional (havoc_copy)  *)
 (** Are the following two programs equivalent? *)
 
@@ -1709,10 +1772,12 @@ Definition pcopy :=
 
 Theorem ptwice_cequiv_pcopy :
   cequiv ptwice pcopy \/ ~cequiv ptwice pcopy.
-Proof. (* FILL IN HERE *) Admitted.
-(** [] *)
+Proof.
+  right.
+  unfold not. intros.
+Admitted.
 
-(** The definition of program equivalence we are using here has some
+  (** The definition of program equivalence we are using here has some
     subtle consequences on programs that may loop forever.  What
     [cequiv] says is that the set of possible _terminating_ outcomes
     of two equivalent programs is the same. However, in a language
@@ -1744,21 +1809,76 @@ Definition p2 : com :=
 
 Lemma p1_may_diverge : forall st st', st X <> 0 ->
   ~ p1 / st \\ st'.
-Proof. (* FILL IN HERE *) Admitted.
+Proof.
+  intros.
+  unfold not. unfold p1.
+  intros Hw.
+  remember (WHILE BNot (BEq (AId X) (ANum 0))
+                  DO HAVOC Y;; X ::= APlus (AId X) (ANum 1) END) as cw eqn:Hcw.
+  induction Hw;
+    inversion Hcw.
+  - subst.
+    inversion H0.
+    assert (Heq : (st X =? 0) = false).
+    { induction (st X). destruct H. reflexivity.
+      simpl. reflexivity. }
+    rewrite Heq in H2. simpl in H2.
+    inversion H2.
+  - subst.
+    apply IHHw2.
+    + inversion Hw1. subst.
+      assert (Hst0 : st'0 X <> 0).
+      { inversion H3.
+        subst.
+        assert (Hxy : Y <> X).
+        { apply beq_id_false_iff.
+          simpl. reflexivity. }
+        apply (t_update_neq _ n Y X st) in Hxy.
+        rewrite Hxy. apply H. }
+      inversion H6. subst.
+      simpl.
+      induction (st'0 X).
+      * destruct Hst0.
+        reflexivity.
+      * simpl.
+        rewrite t_update_eq.
+        auto.
+    + apply Hcw.
+Qed.
 
 Lemma p2_may_diverge : forall st st', st X <> 0 ->
   ~ p2 / st \\ st'.
 Proof.
-(* FILL IN HERE *) Admitted.
-(** [] *)
+  intros. unfold not. unfold p2.
+  intros Hw.
+  remember (WHILE BNot (BEq (AId X) (ANum 0)) DO SKIP END) as cw eqn:Hcw.
+  induction Hw;
+    inversion Hcw.
+  - subst.
+    inversion H0.
+    assert (Heq : (st X =? 0) = false).
+    { induction (st X). destruct H. reflexivity.
+      simpl. reflexivity. }
+    rewrite Heq in H2. simpl in H2.
+    inversion H2.
+  - apply IHHw2.
+    + subst.
+      inversion Hw1. rewrite <- H3. apply H.
+    + apply Hcw.
+Qed.
 
 (** **** Exercise: 4 stars, advanced (p1_p2_equiv)  *)
 (** Use these two lemmas to prove that [p1] and [p2] are actually
     equivalent. *)
 
 Theorem p1_p2_equiv : cequiv p1 p2.
-Proof. (* FILL IN HERE *) Admitted.
-(** [] *)
+Proof.
+  unfold p1. unfold p2.
+  remember (BNot (BEq (AId X) (ANum 0))) as b eqn:Hb.
+  remember (HAVOC Y;; X ::= APlus (AId X) (ANum 1)) as c1 eqn:Hc1.
+  remember SKIP as c2 eqn:Hc2.
+  unfold cequiv. intros.
+Admitted.
 
 (** **** Exercise: 4 stars, advanced (p3_p4_inequiv)  *)
 (** Prove that the following programs are _not_ equivalent.  (Hint:
