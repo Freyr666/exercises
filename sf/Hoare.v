@@ -1738,13 +1738,17 @@ Notation "{{ P }}  c  {{ Q }}" := (hoare_triple P c Q)
 (** Complete the Hoare rule for [HAVOC] commands below by defining
     [havoc_pre] and prove that the resulting rule is correct. *)
 
-Definition havoc_pre (X : id) (Q : Assertion) : Assertion 
-  (* REPLACE THIS LINE WITH ":= _your_definition_ ." *). Admitted.
+Definition havoc_pre (X : id) (Q : Assertion) : Assertion :=
+  fun st => (forall n, Q (t_update st X n)).
 
 Theorem hoare_havoc : forall (Q : Assertion) (X : id),
   {{ havoc_pre X Q }} HAVOC X {{ Q }}.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  unfold hoare_triple.
+  intros Q X st st' H P.
+  inversion H. subst.
+  apply P.
+Qed.
 
 End Himp.
 (** [] *)
