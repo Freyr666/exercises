@@ -296,11 +296,26 @@ Proof.
       apply HT with st.
       eapply E_IfFalse in Hb. apply Hb. apply H. apply HP.
   - (* While *)
-    eapply H_Consequence_post.
-    apply H_While. apply IHc.
-    intros st st' Hc [HP Hb].
-    inversion Hb. eapply E_WhileTrue in H0.
-Admitted.
+    eapply H_Consequence with (P' := wp (WHILE b DO c END) Q).
+    (* 1) The weakest precondition (while b do c end) Q holds for Q *)
+    + apply H_While. apply IHc.
+      intros st st' H [Hpre Hb].
+      unfold wp. intros st'' Hwhile.
+      apply Hpre. apply (E_WhileTrue st st' st'').
+      * apply Hb.     (* condition *)
+      * apply H.      (* body *)
+      * apply Hwhile. (* loop *)
+    (* 2) P implies the weakest precondition (while b do c end) Q (P') *)
+    + unfold wp. intros st HP st' Hwhile.
+      apply HT with st.
+      apply Hwhile. apply HP.
+    (* 3) the weakest precondition (while b do c end) Q implies Q *)
+    + simpl. intros st [Hpre Hb].
+      apply Hpre. apply E_WhileFalse.
+      apply bassn_eval_false in Hb.
+      apply Hb.
+Qed.
+      
 (** Finally, we might hope that our axiomatic Hoare logic is
     _decidable_; that is, that there is an (terminating) algorithm (a
     _decision procedure_) that can determine whether or not a given
