@@ -613,10 +613,16 @@ Inductive step : tm -> tm -> Prop :=
 Lemma value_not_same_as_normal_form :
   exists v, value v /\ ~ normal_form step v.
 Proof.
-  (* FILL IN HERE *) Admitted.
-End Temp1.
+  (exists (P (C 0) (C 1))).
+  split.
+  - apply v_funny.
+  - unfold not, normal_form.
+    intros. apply H.
+    (exists (C (0 + 1))).
+    apply ST_PlusConstConst.
+Qed.
 
-(** [] *)
+End Temp1.
 
 (** **** Exercise: 2 stars, optional (value_not_same_as_normal_form2)  *)
 (** Alternatively, we might mistakenly define [step] so that it
@@ -647,12 +653,16 @@ Inductive step : tm -> tm -> Prop :=
 Lemma value_not_same_as_normal_form :
   exists v, value v /\ ~ normal_form step v.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  (exists (C 0)).
+  split.
+  - apply v_const.
+  - unfold not, normal_form.
+    intros. apply H.
+    (exists (P (C 0) (C 0))).
+    apply ST_Funny.
+Qed.
 
 End Temp2.
-
-(** [] *)
-
 
 (** **** Exercise: 3 stars, optional (value_not_same_as_normal_form3)  *)
 (** Finally, we might define [value] and [step] so that there is some
@@ -683,8 +693,15 @@ Inductive step : tm -> tm -> Prop :=
 Lemma value_not_same_as_normal_form :
   exists t, ~ value t /\ normal_form step t.
 Proof.
-  (* FILL IN HERE *) Admitted.
-
+  exists (P (C 0) (P (C 0) (C 0))).
+  split.
+  - unfold not. intros. inversion H.
+  - unfold normal_form, not. intros.
+    inversion H. induction x.
+    + inversion H0.
+    + inversion H0. subst. inversion H2.
+Qed.
+      
 End Temp3.
 
 
@@ -729,7 +746,7 @@ Inductive step : tm -> tm -> Prop :=
 Definition bool_step_prop1 :=
   tfalse ==> tfalse.
 
-(* FILL IN HERE *)
+(* Not provable *)
 
 Definition bool_step_prop2 :=
      tif
@@ -739,7 +756,7 @@ Definition bool_step_prop2 :=
   ==>
      ttrue.
 
-(* FILL IN HERE *)
+(* Not provable *)
 
 Definition bool_step_prop3 :=
      tif
@@ -752,7 +769,12 @@ Definition bool_step_prop3 :=
        (tif ttrue ttrue ttrue)
        tfalse.
 
-(* FILL IN HERE *)
+(* provable *)
+Theorem bool_step3 : bool_step_prop3.
+Proof. unfold bool_step_prop3.
+       apply ST_If. apply ST_IfTrue.
+Qed.
+
 (** [] *)
 
 (** **** Exercise: 3 stars, optional (progress_bool)  *)
@@ -762,15 +784,38 @@ Definition bool_step_prop3 :=
 Theorem strong_progress : forall t,
   value t \/ (exists t', t ==> t').
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  induction t.
+  - left. apply v_true.
+  - left. apply v_false.
+  - right. inversion IHt1.
+    + induction t1.
+      * exists t2. apply ST_IfTrue.
+      * exists t3. apply ST_IfFalse.
+      * inversion H.
+    + inversion H.
+      exists (tif x t2 t3).
+      apply ST_If. apply H0.
+Qed.
 
 (** **** Exercise: 2 stars, optional (step_deterministic)  *)
 Theorem step_deterministic :
   deterministic step.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  unfold deterministic.
+  intros x y1 y2 Hy1 Hy2.
+  generalize dependent y2.
+  induction Hy1; intros y2 Hy2.
+  - inversion Hy2; subst.
+    + reflexivity.
+    + inversion H3.
+  - inversion Hy2; subst.
+    + reflexivity.
+    + inversion H3.
+  - inversion Hy2; subst.
+    + inversion Hy1.
+    + inversion Hy1.
+    + apply IHHy1 in H3. rewrite H3. reflexivity.
+Qed.
 
 Module Temp5.
 
@@ -804,8 +849,11 @@ Inductive step : tm -> tm -> Prop :=
   | ST_If : forall t1 t1' t2 t3,
       t1 ==> t1' ->
       tif t1 t2 t3 ==> tif t1' t2 t3
-  (* FILL IN HERE *)
-
+  | ST_Same : forall t t1 t2 t3,
+      t2 = t \/ t2 ==> t ->
+      t3 = t \/ t3 ==> t ->
+      tif t1 t2 t3 ==> t
+      
   where " t '==>' t' " := (step t t').
 
 Definition bool_step_prop4 :=
@@ -819,8 +867,11 @@ Definition bool_step_prop4 :=
 Example bool_step_prop4_holds :
   bool_step_prop4.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  unfold bool_step_prop4.
+  apply ST_Same.
+  left. reflexivity.
+  left. reflexivity.
+Qed.
 
 (** **** Exercise: 3 stars, optional (properties_of_altered_step)  *)
 (** It can be shown that the determinism and strong progress theorems
@@ -991,18 +1042,14 @@ Proof.
 (** **** Exercise: 1 star, optional (test_multistep_2)  *)
 Lemma test_multistep_2:
   C 3 ==>* C 3.
-Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+Proof. apply multi_refl. Qed.
 
 (** **** Exercise: 1 star, optional (test_multistep_3)  *)
 Lemma test_multistep_3:
       P (C 0) (C 3)
    ==>*
       P (C 0) (C 3).
-Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+Proof. apply multi_refl. Qed.
 
 (** **** Exercise: 2 stars (test_multistep_4)  *)
 Lemma test_multistep_4:
@@ -1015,9 +1062,14 @@ Lemma test_multistep_4:
       P
         (C 0)
         (C (2 + (0 + 3))).
-Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+Proof. eapply multi_step.
+       apply ST_Plus2. apply v_const.
+       apply ST_Plus2. apply v_const.
+       apply ST_PlusConstConst.
+       eapply multi_R.
+       apply ST_Plus2. apply v_const.
+       apply ST_PlusConstConst.
+Qed.
 
 (* ================================================================= *)
 (** ** Normal Forms Again *)
@@ -1047,8 +1099,34 @@ Proof.
   inversion P1 as [P11 P12]; clear P1.
   inversion P2 as [P21 P22]; clear P2.
   generalize dependent y2.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  induction P11; intros y2 P21 P22.
+  (* multi_refl x = y1 *)
+  - inversion P21.
+    (* x ==>* y2 : x = y2 *)
+    reflexivity.
+    (* x ==>* y2 : x ==> y ==>* y2 (but x is normal form) *)
+    exfalso. apply P12. exists y. apply H.
+  (* multi_step x ==> y ==>* z *)
+  - apply IHP11.
+    (* sf z *)
+    + apply P12.
+    (* y ==>* y2 *)
+    + inversion P21; subst.
+      (* x = y2 (contra: x = y2 ==> y, y2 -- nf) *)
+      * apply nf_is_value in P22.
+        inversion P22. subst. inversion H.
+      (* x ==> y0 ==>* y2 ,
+         x ==> y -> x ==> y0 -> y = y0 *)
+      * assert (deterministic step).
+        apply step_deterministic.
+        unfold deterministic in H2.
+        assert (y = y0).
+        apply H2 with x. apply H. apply H0.
+        rewrite H3.
+        apply H1.
+    (* nf y2 *)
+    + apply P22.
+Qed.
 
 (** Indeed, something stronger is true for this language (though not
     for all languages): the reduction of _any_ term [t] will
@@ -1084,8 +1162,12 @@ Lemma multistep_congr_2 : forall t1 t2 t2',
      t2 ==>* t2' ->
      P t1 t2 ==>* P t1 t2'.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  intros t1 t2 t2' V H. induction H.
+  - apply multi_refl.
+  - apply multi_step with (P t1 y).
+    apply ST_Plus2. apply V. apply H.
+    apply IHmulti.
+Qed.
 
 (** With these lemmas in hand, the main proof is a straightforward
     induction.
@@ -1190,8 +1272,18 @@ Theorem eval__multistep : forall t n,
     includes [==>]. *)
 
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  intros. induction H.
+  - apply multi_refl.
+  - apply multi_trans with (P (C n1) t2).
+    apply multistep_congr_1.
+    apply IHeval1.
+    apply multi_trans with (P (C n1) (C n2)).
+    + apply multistep_congr_2.
+      apply v_const.
+      apply IHeval2.
+    + apply multi_R.
+      apply ST_PlusConstConst.
+Qed.
 
 (** **** Exercise: 3 stars, advanced (eval__multistep_inf)  *)
 (** Write a detailed informal version of the proof of [eval__multistep].
@@ -1210,7 +1302,20 @@ Lemma step__eval : forall t t' n,
      t \\ n.
 Proof.
   intros t t' n Hs. generalize dependent n.
-  (* FILL IN HERE *) Admitted.
+  induction Hs.
+  - intros. inversion H. apply E_Plus.
+    apply E_Const. apply E_Const.
+  - intros. inversion H. subst.
+    apply IHHs in H2.
+    apply E_Plus.
+    apply H2. apply H4.
+  - intros. inversion H0. subst.
+    apply IHHs in H5.
+    apply E_Plus.
+    apply H3.
+    apply H5.
+Qed.
+    
 (** [] *)
 
 (** The fact that small-step reduction implies big-step evaluation is
@@ -1226,7 +1331,18 @@ Proof.
 Theorem multistep__eval : forall t t',
   normal_form_of t t' -> exists n, t' = C n /\ t \\ n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. unfold normal_form_of in H.
+  destruct H as [H Hnf].
+  induction H.
+  - destruct x.
+    + exists n. split. reflexivity. apply E_Const.
+    + apply nf_is_value in Hnf. inversion Hnf.
+  - apply IHmulti in Hnf.
+    destruct Hnf as [n [Hz Hyn]].
+    apply (step__eval _ _ n) in H.
+    exists n. split. apply Hz. apply H. apply Hyn.
+Qed.      
+  
 (** [] *)
 
 (* ================================================================= *)
