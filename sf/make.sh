@@ -20,3 +20,4 @@ coqc Equiv.v
 coqc Hoare.v
 coqc Hoare2.v
 coqc HoareAsLogic.v
+coqc Smallstep.v
