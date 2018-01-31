@@ -183,8 +183,13 @@ Hint Unfold stuck.
 Example some_term_is_stuck :
   exists t, stuck t.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  exists (tsucc ttrue).
+  unfold stuck. split.
+  - unfold step_normal_form. intros H.
+    inversion H. inversion H0. subst. inversion H2.
+  - unfold value. intros [H | H]; inversion H.
+    inversion H1.
+Qed.
 
 (** However, although values and normal forms are _not_ the same in this
     language, the set of values is included in the set of normal
@@ -195,8 +200,18 @@ Proof.
 Lemma value_is_nf : forall t,
   value t -> step_normal_form t.
 Proof.
-  (* FILL IN HERE *) Admitted.
-
+  intros. unfold step_normal_form.
+  intros Hv. inversion H.
+  - induction H0;
+      inversion Hv; inversion H0.
+  - induction H0.
+    + inversion Hv. inversion H0.
+    + inversion H; inversion H1.
+      apply IHnvalue.
+      * unfold value. right. apply H3.
+      * inversion Hv. inversion H4. exists t1'. assumption.
+Qed.
+      
 (** (Hint: You will reach a point in this proof where you need to
     use an induction to reason about a term that is known to be a
     numeric value.  This induction can be performed either over the
@@ -213,9 +228,27 @@ Proof.
 Theorem step_deterministic:
   deterministic step.
 Proof with eauto.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  unfold deterministic.
+  intros x y1 y2 H1.
+  generalize dependent y2.
+  induction H1; intros y2 H2.
+  - inversion H2. reflexivity.
+    inversion H4.
+  - inversion H2. reflexivity.
+    inversion H4.
+  - inversion H2; subst; try inversion H1;
+      apply IHstep in H5; subst; reflexivity.
+  - inversion H2; subst. apply IHstep in H0. subst. reflexivity.
+  - inversion H2. reflexivity.
+    inversion H0.
+  - admit.
+  - admit.
+  - inversion H2. reflexivity.
+    inversion H0.
+  - admit.
+  - admit.
+Admitted.
+      
 (* ================================================================= *)
 (** ** Typing *)
 
@@ -320,8 +353,7 @@ Example succ_hastype_nat__hastype_nat : forall t,
   |- tsucc t \in TNat ->
   |- t \in TNat.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  intros. inversion H. assumption. Qed.
 
 (* ----------------------------------------------------------------- *)
 (** *** Canonical forms *)
@@ -379,8 +411,16 @@ Proof with auto.
     + (* t1 can take a step *)
       inversion H as [t1' H1].
       exists (tif t1' t2 t3)...
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  - (* T_Succ *)
+    left. inversion IHHT; clear IHHT.
+    + apply nat_canonical in H. unfold value.
+      right.
+      induction H.
+      * apply nv_succ. apply nv_zero.
+      * apply nv_succ. apply IHnvalue.
+        inversion HT. assumption.
+      * assumption.
+Admitted.
 
 (** **** Exercise: 3 stars, advanced (finish_progress_informal)  *)
 (** Complete the corresponding informal proof: *)
