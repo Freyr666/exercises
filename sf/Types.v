@@ -241,7 +241,8 @@ Proof with eauto.
   - inversion H2; subst. apply IHstep in H0. subst. reflexivity.
   - inversion H2. reflexivity.
     inversion H0.
-  - admit.
+  - assert (Hv: value t1). right. assumption.
+    admit.
   - admit.
   - inversion H2. reflexivity.
     inversion H0.
@@ -412,16 +413,47 @@ Proof with auto.
       inversion H as [t1' H1].
       exists (tif t1' t2 t3)...
   - (* T_Succ *)
-    left. inversion IHHT; clear IHHT.
-    + apply nat_canonical in H. unfold value.
+    inversion IHHT; clear IHHT.
+    (* t1 is a value *)
+    + left. apply nat_canonical in H. unfold value.
       right.
       induction H.
       * apply nv_succ. apply nv_zero.
       * apply nv_succ. apply IHnvalue.
         inversion HT. assumption.
       * assumption.
-Admitted.
-
+    (* t1 can take a step *)
+    + inversion H as [t1' H1].
+      right. exists (tsucc t1').
+      apply ST_Succ. assumption.
+  - (* T_Pred *)
+    inversion IHHT; clear IHHT.
+    (* t1 is a value *)
+    + apply nat_canonical in H. unfold value.
+      right.
+      induction H.
+      * exists tzero. apply ST_PredZero.
+      * exists t. apply ST_PredSucc. assumption.
+      * assumption.
+    (* t1 can take a step *)
+    + inversion H as [t1' H1].
+      right. exists (tpred t1').
+      apply ST_Pred. assumption.
+  - (* T_Iszero *)
+    inversion IHHT; clear IHHT.
+    (* t1 is a value *)
+    + apply nat_canonical in H.
+      unfold value. right.
+      induction H.
+      * exists ttrue. apply ST_IszeroZero.
+      * exists tfalse. apply ST_IszeroSucc. assumption.
+      * assumption.
+    (* t1 can take a step *)
+    + inversion H as [t1' H1].
+      right. exists (tiszero t1').
+      apply ST_Iszero. assumption.
+Qed.
+      
 (** **** Exercise: 3 stars, advanced (finish_progress_informal)  *)
 (** Complete the corresponding informal proof: *)
 
@@ -484,8 +516,22 @@ Proof with auto.
       + (* ST_IfFalse *) assumption.
       + (* ST_If *) apply T_If; try assumption.
         apply IHHT1; assumption.
-    (* FILL IN HERE *) Admitted.
-(** [] *)
+    - (* T_Succ *)
+      inversion HE. subst.
+      apply IHHT in H0.
+      apply T_Succ in H0. assumption.
+    - (* T_Pred *)
+      inversion HE; subst.
+      (* tpred tzero *)
+      * assumption.
+      * inversion HT. assumption.
+      * apply IHHT in H0. apply T_Pred. assumption.
+    - (* T_Iszero *)
+      inversion HE.
+      * apply T_True.
+      * apply T_False.
+      * subst. apply IHHT in H0. apply T_Iszero. assumption.
+Qed.
 
 (** **** Exercise: 3 stars, advanced (finish_preservation_informal)  *)
 (** Complete the following informal proof: *)
@@ -530,7 +576,29 @@ Theorem preservation' : forall t t' T,
   t ==> t' ->
   |- t' \in T.
 Proof with eauto.
-  (* FILL IN HERE *) Admitted.
+  intros t t' T HT HE.
+  generalize dependent T.
+  induction HE; try (inversion HT; subst; assumption); intros T HT.
+  (* Tif true *)
+  - inversion HT. assumption.
+  (* Tif false *)
+  - inversion HT. assumption.
+  (* Tif *)
+  - inversion HT. subst. apply IHHE in H2.
+    apply T_If; assumption.
+  (* TSucc *)
+  - inversion HT. subst. apply IHHE in H0.
+    apply T_Succ. assumption.
+  (* TZero *)
+  - inversion HT. subst. assumption.
+  (* TPred Succ *)
+  - inversion HT. inversion H1. assumption.
+  (* Pred Pred *)
+  - inversion HT. apply IHHE in H0. subst. apply T_Pred. assumption.
+  - inversion HT. apply T_True.
+  - inversion HT. apply T_False.
+  - inversion HT. subst. apply IHHE in H0. apply T_Iszero. assumption.
+Qed.  
 (** [] *)
 
 (** The preservation theorem is often called _subject reduction_,
@@ -554,7 +622,7 @@ Corollary soundness : forall t t' T,
   ~(stuck t').
 Proof.
   intros t t' T HT P. induction P; intros [R S].
-  destruct (progress x T HT); auto.
+  destruct (progress x T HT); eauto.
   apply IHP.  apply (preservation x y T HT H).
   unfold stuck. split; auto.   Qed.
 
