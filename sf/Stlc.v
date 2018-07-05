@@ -387,7 +387,27 @@ where "'[' x ':=' s ']' t" := (subst x s t).
 Inductive substi (s:tm) (x:id) : tm -> tm -> Prop :=
   | s_var1 :
       substi s x (tvar x) s
-  (* FILL IN HERE *)
+  | s_var2 :
+      forall (y:id), x <> y -> substi s x (tvar y) (tvar y)
+  | s_abs1 :
+      forall (T:ty) (t:tm), substi s x (tabs x T t) (tabs x T t)
+  | s_abs2 :
+      forall (T:ty) (y:id) (t t':tm), x <> y ->
+                                 substi s x t t' ->
+                                 substi s x (tabs y T t) (tabs y T t')
+  | s_app :
+      forall (t1 t2 t1' t2' : tm), substi s x t1 t1' ->
+                              substi s x t2 t2' ->
+                              substi s x (tapp t1 t2) (tapp t1' t2')
+  | s_true :
+      substi s x ttrue ttrue
+  | s_false :
+      substi s x tfalse tfalse
+  | s_if :
+      forall (t tt tf t' tt' tf' : tm), substi s x t t' ->
+                                   substi s x tt tt' ->
+                                   substi s x tf tf' ->
+                                   substi s x (tif t tt tf) (tif t' tt' tf')
 .
 
 Hint Constructors substi.
@@ -395,7 +415,38 @@ Hint Constructors substi.
 Theorem substi_correct : forall s x t t',
   [x:=s]t = t' <-> substi s x t t'.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros s x t t'. split.
+  - intros H. subst. induction t.
+    + simpl. remember (beq_id x i). induction b.
+      * symmetry in Heqb. apply beq_id_true_iff in Heqb. rewrite Heqb. apply s_var1.
+      * apply s_var2. symmetry in Heqb. apply beq_id_false_iff in Heqb. assumption.
+    + simpl. apply s_app; assumption.
+    + simpl. remember (beq_id x i). induction b.
+      * symmetry in Heqb. apply beq_id_true_iff in Heqb. rewrite Heqb.
+        apply s_abs1.
+      * apply s_abs2. symmetry in Heqb. apply beq_id_false_iff in Heqb. assumption.
+        assumption.
+    + simpl. apply s_true.
+    + simpl. apply s_false.
+    + simpl. apply s_if; assumption.
+  - intros H. induction H.
+    + simpl. assert (true = beq_id x x).
+      apply beq_id_refl. rewrite <- H. reflexivity.
+    + simpl. remember (beq_id x y0). induction b.
+      * symmetry in Heqb. apply beq_id_true_iff in Heqb.
+        subst. exfalso. apply H. reflexivity.
+      * reflexivity.
+    + simpl. assert (beq_id x x = true). apply beq_id_true_iff. reflexivity.
+      rewrite H. reflexivity.
+    + simpl. remember (beq_id x y0). induction b.
+      * symmetry in Heqb. apply beq_id_true_iff in Heqb. exfalso. apply H. assumption.
+      * rewrite IHsubsti. reflexivity.
+    + simpl. rewrite IHsubsti1, IHsubsti2. reflexivity.
+    + simpl. reflexivity.
+    + simpl. reflexivity.
+    + simpl. rewrite IHsubsti1, IHsubsti2, IHsubsti3. reflexivity.
+Qed.
+    
 (** [] *)
 
 (* ================================================================= *)
@@ -583,14 +634,12 @@ Proof. normalize.  Qed.
 Lemma step_example5 :
        tapp (tapp idBBBB idBB) idB
   ==>* idB.
-Proof.
-  (* FILL IN HERE *) Admitted.
+Proof. normalize. Qed.
 
 Lemma step_example5_with_normalize :
        tapp (tapp idBBBB idBB) idB
   ==>* idB.
-Proof.
-  (* FILL IN HERE *) Admitted.
+Proof. normalize. Qed.
 (** [] *)
 
 (* ################################################################# *)
@@ -725,13 +774,17 @@ Example typing_example_2_full :
           (tapp (tvar y) (tapp (tvar y) (tvar x))))) \in
     (TArrow TBool (TArrow (TArrow TBool TBool) TBool)).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  apply T_Abs. apply T_Abs.
+  eapply T_App. apply T_Var. reflexivity.
+  eapply T_App. apply T_Var. reflexivity.
+  apply T_Var. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars (typing_example_3)  *)
 (** Formally prove the following typing derivation holds: *)
 (** 
-       empty |- \x:Bool->B. \y:Bool->Bool. \z:Bool.
+       empty |- \x:Bool->Bool. \y:Bool->Bool. \z:Bool.
                    y (x z)
              \in T.
 *)
@@ -745,7 +798,13 @@ Example typing_example_3 :
                (tapp (tvar y) (tapp (tvar x) (tvar z)))))) \in
       T.
 Proof with auto.
-  (* FILL IN HERE *) Admitted.
+  exists (TArrow (TArrow TBool TBool) (TArrow (TArrow TBool TBool) (TArrow TBool TBool))).
+  apply T_Abs. apply T_Abs. apply T_Abs.
+  eapply T_App. apply T_Var. reflexivity.
+  eapply T_App. apply T_Var. reflexivity.
+  apply T_Var. reflexivity.
+Qed.
+  
 (** [] *)
 
 (** We can also show that terms are _not_ typable.  For example, let's
@@ -781,6 +840,15 @@ Proof.
           empty |- \x:S. x x \in T).
 *)
 
+Lemma no_infinite_nested_type :
+  ~ (exists T, exists S, T = TArrow T S).
+Proof.
+  intros Hc. inversion Hc. 
+  clear Hc. induction x0.
+  - inversion H. inversion H0.
+  - inversion H. inversion H0. apply IHx0_1. exists x0_2. apply H2.
+Qed.
+
 Example typing_nonexample_3 :
   ~ (exists S, exists T,
         empty |-
@@ -788,7 +856,16 @@ Example typing_nonexample_3 :
              (tapp (tvar x) (tvar x))) \in
           T).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros Hc. inversion Hc.
+  inversion H. clear H.
+  inversion H0. subst. clear H0.
+  inversion H5. subst. clear H5.
+  inversion H2. subst. clear H2.
+  inversion H4. subst. clear H4.
+  inversion H1. inversion H2. subst.
+  symmetry in H3. apply no_infinite_nested_type. exists T11. exists T12. assumption.
+Qed.
+  
 (** [] *)
 
 End STLC.
