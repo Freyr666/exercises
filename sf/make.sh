@@ -22,3 +22,4 @@ coqc Hoare2.v
 coqc HoareAsLogic.v
 coqc Smallstep.v
 coqc Types.v
+coqc Stlc.v
