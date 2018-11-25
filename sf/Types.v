@@ -715,9 +715,9 @@ Theorem normalize_ex : exists e',
   (P (C 3) (P (C 2) (C 1))) 
   ==>* e'.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  eapply ex_intro. normalize.
+Qed.
+  
 (** **** Exercise: 1 star, optional (normalize_ex')  *)
 (** For comparison, prove it using [apply] instead of [eapply]. *)
 
@@ -725,9 +725,9 @@ Theorem normalize_ex' : exists e',
   (P (C 3) (P (C 2) (C 1))) 
   ==>* e'.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  eapply ex_intro. normalize.
+Qed.
+  
 End NormalizePlayground.
 Tactic Notation "print_goal" :=
   match goal with |- ?x => idtac x end.
@@ -748,9 +748,20 @@ Tactic Notation "normalize" :=
     not, give a counter-example.  (You do not need to prove your
     counter-example in Coq, but feel free to do so.)
 
-    (* FILL IN HERE *)
-[] *)
+ *)
 
+Theorem subject_expansion_impossible : exists t t' T,
+    |- t' \in T ->
+    t ==> t' ->
+    ~ (|- t \in T).
+Proof with eauto.
+  exists (tif ttrue ttrue tzero).
+  exists ttrue.
+  exists TBool.
+  intros HT HE H.
+  inversion H. inversion H6.
+Qed.
+  
 (** **** Exercise: 2 stars (variation1)  *)
 (** Suppose, that we add this new rule to the typing relation:
 

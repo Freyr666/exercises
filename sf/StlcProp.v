@@ -140,18 +140,38 @@ Theorem progress' : forall t T,
 Proof.
   intros t.
   induction t; intros T Ht; auto.
+  (* T_Var in empty context *)
   - inversion Ht. subst. inversion H1.
+    (* T_App *)
   - inversion Ht. subst. right.
     assert (H2' := H2). apply IHt1 in H2.
     assert (H4' := H4). apply IHt2 in H4.
     inversion H2.
-    + inversion H2'; subst; inversion H.
-      subst. 
-      * exists ([x0:=t2]t12). apply ST_AppAbs.
-        inversion H4. assumption. 
+    (* [t1] is value *)
+    + inversion H4.
+      (* [t2] is also a value *)
+      * destruct H.
+        exists ([x0:=t2]t). apply ST_AppAbs. assumption.
+        inversion H2'. inversion H2'.
+      (* there is a step for [t2] *)
+      * inversion H0 as [ts Hts].
+        exists (tapp t1 ts).
+        apply ST_App2; assumption.
+    (* there is a step for [t1] *)
+    + inversion H as [ts Hts].
+      exists (tapp ts t2).
+      apply ST_App1; assumption.
+  (* T_If *)
+  - right. inversion Ht. subst.
+    assert (HT := H3).
+    apply IHt1 in H3. inversion H3.
+    (* If case is a value *)
+    + destruct (canonical_forms_bool t1); subst; eauto.
+    (* If case has a step *)
+    + inversion H as [ts Hts]. exists (tif ts t2 t3).
+      apply ST_If; assumption.
+Qed.
     
-(** [] *)
-
 (* ################################################################# *)
 (** * Preservation *)
 
@@ -314,9 +334,13 @@ Corollary typable_empty__closed : forall t T,
     empty |- t \in T  ->
     closed t.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
-
+  unfold closed.
+  intros t T HT x H.
+  apply (free_in_context x t T empty) in H.
+  inversion H. inversion H0.
+  assumption.
+Qed.
+  
 (** Sometimes, when we have a proof [Gamma |- t : T], we will need to
     replace [Gamma] by a different context [Gamma'].  When is it safe
     to do this?  Intuitively, it must at least be the case that
