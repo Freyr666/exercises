@@ -1,13 +1,3 @@
-(defmacro while (to-do exp &rest body)
-  `(tagbody
-    start
-      ,to-do
-      (if (not ,exp)
-          (go end)
-          ,@body)
-      (go start)
-    end))
-
 (defconstant +input-path+ "./input")
 
 (defun mass->fuel (mass)
