@@ -5,7 +5,7 @@
         ((char= char #\,) :comma)
         ((and (char>= char #\0)
               (char<= char #\9)) (- (char-int char)
-              (char-int #\0)))
+                                    (char-int #\0)))
         (t nil)))
 
 (defun parse-intcode (stream)
