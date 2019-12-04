@@ -1,3 +1,43 @@
+(defconstant +input-path+ "./input")
+
+(defstruct coord
+  (x-1 0 :type integer)
+  (y-1 0 :type integer)
+  (x-2 0 :type integer)
+  (y-2 0 :type integer)
+  (dist 0 :type integer))
+
+(defstruct intersect-point
+  (x 0 :type integer)
+  (y 0 :type integer)
+  (surplus 0 :type integer))
+
+(defmethod simple-intersection ((horiz coord) (vert coord))
+  ;; TODO these should be proper coord subclasses verified
+  ;; on initialization
+  (assert (= (coord-y-1 horiz) (coord-y-2 horiz))
+          '()
+          "First value should be horizontal ~A" horiz)
+  (assert (= (coord-x-1 vert) (coord-x-2 vert))
+          '()
+          "First value should be vertical ~A" vert)
+  (labels ((between (arg v1 v2)
+             (and (>= arg
+                      (min v1 v2))
+                  (<= arg
+                      (max v1 v2)))))
+    (if (and (between (coord-y-1 horiz)
+                      (coord-y-1 vert)
+                      (coord-y-2 vert))
+             (between (coord-x-1 vert)
+                      (coord-x-1 horiz)
+                      (coord-x-2 horiz)))
+        (make-intersect-point :x (coord-x-1 vert)
+                              :y (coord-y-1 horiz)
+                              :surplus (+ (abs (- (coord-x-2 horiz) (coord-x-1 vert)))
+                                          (abs (- (coord-y-2 vert) (coord-y-1 horiz)))))
+        nil)))
+
 (defun parse-direction (str)
   (let ((distance (parse-integer str :start 1)))
     (case (aref str 0)
@@ -6,7 +46,7 @@
       ((#\U #\u) (cons :u distance))
       ((#\D #\d) (cons :d distance))
       (t         (error "Bad direction designator")))))
-      
+
 (defun read-wires-paths (stream)
   (labels ((cons-if-string (stream lst)
              (let ((s (get-output-stream-string stream)))
@@ -28,25 +68,97 @@
           (mapcar #'parse-direction
                   (parse '() (make-string-output-stream))))))
 
-(defun directions->sorted-trace (dir-list)
-  (let ((res (make-hash-table :size 1000))
+(defun directions->paths (dir-list)
+  (let ((horiz '())
+        (vert  '())
         (x   0)
         (y   0)
-        (l   0))
-    (labels ((move (dim inc dist)
-               (dotimes (i 
+        (steps 0))
+    (labels ((move-x (f by)
+               (let ((start-x x)
+                     (start-y y))
+                 (setf x (funcall f x by))
+                 (setf steps (+ steps by))
+                 (setf horiz (cons (make-coord :x-1 start-x
+                                               :y-1 start-y
+                                               :x-2 x
+                                               :y-2 y
+                                               :dist steps)
+                                   horiz))))
+             (move-y (f by)
+               (let ((start-x x)
+                     (start-y y))
+                 (setf y (funcall f y by))
+                 (setf steps (+ steps by))
+                 (setf vert (cons (make-coord :x-1 start-x
+                                               :y-1 start-y
+                                               :x-2 x
+                                               :y-2 y
+                                               :dist steps)
+                                  vert)))))
       (dolist (el dir-list)
         (case (car el)
-          ((:u) (move 'y #'incf (cdr el)))
-          ((:d) (move 'y #'decf (cdr el)))
-          ((:r) (move 'x #'incf (cdr el)))
-          ((:l) (move 'x #'decf (cdr el)))
-                         
-        
+          ((:u) (move-y #'+ (cdr el)))
+          ((:d) (move-y #'- (cdr el)))
+          ((:r) (move-x #'+ (cdr el)))
+          ((:l) (move-x #'- (cdr el)))))
+      (cons horiz vert))))
 
-(defun solution-for-intersection ()
-  (with-open-file (stream "./input")
+(defun intersections (horiz vert)
+  (let ((res '()))
+    (dolist (h horiz)
+      (dolist (v vert)
+        (let ((i (simple-intersection h v)))
+          (when i
+            (let ((total-steps (- (+ (coord-dist h)
+                                     (coord-dist v))
+                                  (intersect-point-surplus i))))
+              (setf res (cons (cons i total-steps) res)))))))
+    res))
+                         
+(defun find-wire-intersections (stream)
+  (labels ((point-dist (point)
+             (+ (intersect-point-x point)
+                (intersect-point-y point))))
     (let* ((pair   (read-wires-paths stream))
-           (wire-a (car pair))
-           (wire-b (cdr pair)))
-      (let ((sorted-trace-a (
+           (wire-a (directions->paths (car pair)))
+           (wire-b (directions->paths (cdr pair)))
+           (a-horiz (car wire-a))
+           (a-vert  (cdr wire-a))
+           (b-horiz (car wire-b))
+           (b-vert  (cdr wire-b)))
+      (apply #'min
+             (mapcar (lambda (p) (point-dist (car p)))
+                     (append (intersections a-horiz b-vert)
+                             (intersections b-horiz a-vert)))))))
+
+(with-open-file (stream "./input")
+  (find-wire-intersections stream))
+
+;; Part Two
+(defun find-intersection-lowest-steps (stream)
+  (labels ((point-dist  (point)
+             (+ (intersect-point-x point)
+                (intersect-point-y point)))
+           (smallest (smaller lst)
+             (when lst
+               (let ((res (car lst)))
+                 (dolist (el (cdr lst))
+                   (when (funcall smaller el res)
+                     (setf res el)))
+                 res))))
+    (let* ((pair   (read-wires-paths stream))
+           (wire-a (directions->paths (car pair)))
+           (wire-b (directions->paths (cdr pair)))
+           (a-horiz (car wire-a))
+           (a-vert  (cdr wire-a))
+           (b-horiz (car wire-b))
+           (b-vert  (cdr wire-b)))
+      (let ((res (smallest (lambda (l r) (< (cdr l) (cdr r)))
+                           (append (intersections b-horiz a-vert)
+                                   (intersections a-horiz b-vert)))))
+        (when res
+          (cdr res))))))
+
+(with-open-file (stream "./input")
+  (find-intersection-lowest-steps stream))
