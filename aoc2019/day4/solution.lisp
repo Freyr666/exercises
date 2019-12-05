@@ -1,19 +1,49 @@
 (defconstant +input+ '(109165 . 576723))
 
-(defconstant +borders+
-  (let ((res '())
-        (first (car +input+))
-        (second (cdr +input+)))
-    (loop
-       while (not (or (zerop first)
-                      (zerop second)))
-       do
-         (multiple-value-bind (fv fr) (truncate first 10)
-           (multiple-value-bind (sv sr) (truncate second 10)
-             (setf first fv
-                   second sv
-                   res (cons (cons fr sr) res)))))
-    res))
+(defun range->bounds (range)
+  (destructuring-bind (first . second) range
+    (when (< first second)
+      (labels ((num->list (acc num)
+                 (if (zerop num)
+                     acc
+                     (multiple-value-bind (v r)
+                         (truncate num 10)
+                       (num->list (cons r acc) v)))))
+        (let ((lower (num->list '() first))
+              (upper (num->list '() second)))
+          (let ((diff (- (length upper)
+                         (length lower))))
+            (mapcar #'cons
+                    (append (make-list diff :initial-element 0)
+                            lower)
+                    upper)))))))
+        
+(defun enumerate (doubled-p bounds acc could-carry)
+  (if (not bounds)
+      (if (funcall doubled-p acc)
+          1
+          0)
+      (let ((lower   (caar bounds))
+            (upper   (cdar bounds))
+            (rest    (cdr bounds))
+            (sum     0))
+        (loop
+           for d from lower to upper
+           do (let* ((still-could-carry (and could-carry
+                                             (= d upper)))
+                     (new-lower-bounds (mapcar (lambda (p) (cons d
+                                                                 (cdr p)))
+                                               rest))
+                     (new-bounds       (if still-could-carry
+                                           new-lower-bounds
+                                           (mapcar (lambda (p) (cons (car p) 9))
+                                                   new-lower-bounds))))
+                (setf sum (+ sum
+                             (enumerate doubled-p
+                                        new-bounds
+                                        (cons d acc)
+                                        still-could-carry)))))
+        sum)))
 
 (defun doubled-p (lst)
   (let ((res nil)
@@ -24,38 +54,8 @@
             prev d))
     res))
 
-(defun enumerate (doubled-p bounds acc minimal max-digit)
-  (let ((sum 0))
-    (if (not bounds)
-        (if (funcall doubled-p acc)
-            1
-            0)
-        (let ((current (car bounds))
-              (rest    (cdr bounds)))
-          (loop
-             for d from (max minimal (car current)) to (cdr current)
-             do (let* ((new-lower-bounds (if (= d (car current))
-                                             rest
-                                             (mapcar (lambda (p) (cons 0
-                                                                       (cdr p)))
-                                                     rest)))
-                       (new-bounds       (if (and max-digit
-                                                  (= d (cdr current)))
-                                             new-lower-bounds
-                                             (mapcar (lambda (p) (cons (car p)
-                                                                       9))
-                                                     new-lower-bounds))))
-                  (setf sum (+ sum
-                               (enumerate doubled-p
-                                          new-bounds
-                                          (cons d acc)
-                                          (max minimal d)
-                                          (and max-digit
-                                               (= d (cdr current))))))))
-          sum))))
-
 (defun enumerate-combinations ()
-  (enumerate #'doubled-p +borders+ nil 0 t))
+  (enumerate #'doubled-p (range->bounds +input+) nil t))
 
 ;; Part Two
   
@@ -76,4 +76,4 @@
          t)))
 
 (defun enumerate-combinations-enhanced ()
-  (enumerate #'doubled-no-adjacent-p +borders+ nil 0 t))
+  (enumerate #'doubled-no-adjacent-p (range->bounds +input+) nil t))
