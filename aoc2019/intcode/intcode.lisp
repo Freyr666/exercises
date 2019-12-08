@@ -1,8 +1,10 @@
 (defpackage :aoc.intcode
   (:use :common-lisp)
   (:export :eval-intcode
+           :eval-intcode-buffered 
            :parse-intcode
-           :read-and-eval-intcode))
+           :read-and-eval-intcode
+           :read-and-eval-intcode-buffered))
 
 (in-package :aoc.intcode)
 
@@ -48,18 +50,30 @@
 (defmethod run ((i halt) (pc integer) (mem vector))
   nil)
 
+(define-condition input-condition (error) ())
+
+(defun provide-input (x)
+  (invoke-restart 'provide-input x))
+
 (defmethod run ((i input) (pc integer) (mem vector))
-  (print "Please, insert an Integer: ")
-  (let ((val (parse-integer
-              (read-line *standard-input*)))
+  (let ((val (restart-case (error 'input-condition)
+               (provide-input (x) x)))
         (result-pos (elt mem (+ pc 1))))
     (setf (elt mem result-pos)
           val)
     (+ pc 2)))
 
+(define-condition output-condition (error)
+  ((value :initarg :value :reader output-condition-value)))
+
+(defun receive-output ()
+  (invoke-restart 'receive-output))
+
 (defmethod run ((i output) (pc integer) (mem vector))
   (let ((result-pos (elt mem (+ pc 1))))
-    (print (format nil "Output: ~d~%" (elt mem result-pos)))
+    (print (restart-case
+               (error 'output-condition :value (elt mem result-pos))
+             (receive-output () nil)))
     (+ pc 2)))
 
 (defmethod run ((i addinst) (pc integer) (mem vector))
@@ -178,16 +192,50 @@
         (t    (error op "Wrong opcode"))))))
 
 (defun eval-intcode (code)
-  (labels ((rec (pc)
-             (let* ((inst   (decode-opcode (elt code pc)))
-                    (new-pc (run inst pc code)))
-               (if (not new-pc)
-                   code
-                   (rec new-pc)))))
-    (rec 0)))
+  (handler-bind ((input-condition (lambda (ignore)
+                                    (format t "Please provide a number:~%")
+                                    (provide-input (parse-integer (read-line)))))
+                 (output-condition (lambda (e)
+                                     (format t "Output: ~A~%" (output-condition-value e))
+                                     (receive-output))))
+    (labels ((rec (pc)
+               (let* ((inst   (decode-opcode (elt code pc)))
+                      (new-pc (run inst pc code)))
+                 (if (not new-pc)
+                     code
+                     (rec new-pc)))))
+      (rec 0))))
+
+(defun eval-intcode-buffered (code input-data)
+  (let ((output '())
+        (input  input-data))
+    (handler-bind ((input-condition (lambda (ignore)
+                                      (if input
+                                          (let ((v (car input)))
+                                            (setf input (cdr input))
+                                            (provide-input v))
+                                          (error "Input list is too short"))))
+                   (output-condition (lambda (e)
+                                       (setf output (cons (output-condition-value e)
+                                                          output))
+                                       (receive-output))))
+      (labels ((rec (pc)
+                 (let* ((inst   (decode-opcode (elt code pc)))
+                        (new-pc (run inst pc code)))
+                   (if (not new-pc)
+                       code
+                       (rec new-pc)))))
+        (rec 0)
+        (reverse output)))))
 
 (defun read-and-eval-intcode (stream)
   "Reads and evaluates a program
 written in Intcode"
   (let ((program (parse-intcode stream)))
     (eval-intcode program)))
+
+(defun read-and-eval-intcode-buffered (stream input-data)
+  "Reads and evaluates a program
+written in Intcode"
+  (let ((program (parse-intcode stream)))
+    (eval-intcode-buffered program input-data)))
