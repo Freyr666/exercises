@@ -1,10 +1,16 @@
 (defpackage :aoc.intcode
   (:use :common-lisp)
   (:export :eval-intcode
-           :eval-intcode-buffered 
+           :eval-intcode-buffered
+           :eval-intcode-scheduled
            :parse-intcode
-           :read-and-eval-intcode
-           :read-and-eval-intcode-buffered))
+           :make-scheduler
+           :queue-routine
+           :enqueue-routine
+           :make-chan
+           :write-chan
+           :read-chan
+           :chan->list))
 
 (in-package :aoc.intcode)
 
@@ -50,13 +56,15 @@
 (defmethod run ((i halt) (pc integer) (mem vector))
   nil)
 
-(define-condition input-condition (error) ())
+(define-condition input-condition (error)
+  ((pc :initarg :pc :reader input-condition-pc)))
 
 (defun provide-input (x)
   (invoke-restart 'provide-input x))
 
 (defmethod run ((i input) (pc integer) (mem vector))
-  (let ((val (restart-case (error 'input-condition)
+  (let ((val (restart-case (error 'input-condition
+                                  :pc pc)
                (provide-input (x) x)))
         (result-pos (elt mem (+ pc 1))))
     (setf (elt mem result-pos)
@@ -64,7 +72,8 @@
     (+ pc 2)))
 
 (define-condition output-condition (error)
-  ((value :initarg :value :reader output-condition-value)))
+  ((value :initarg :value :reader output-condition-value)
+   (pc :initarg :pc :reader output-condition-pc)))
 
 (defun receive-output ()
   (invoke-restart 'receive-output))
@@ -72,7 +81,9 @@
 (defmethod run ((i output) (pc integer) (mem vector))
   (let ((result-pos (elt mem (+ pc 1))))
     (print (restart-case
-               (error 'output-condition :value (elt mem result-pos))
+               (error 'output-condition
+                      :value (elt mem result-pos)
+                      :pc    pc)
              (receive-output () nil)))
     (+ pc 2)))
 
@@ -228,14 +239,80 @@
         (rec 0)
         (reverse output)))))
 
-(defun read-and-eval-intcode (stream)
-  "Reads and evaluates a program
-written in Intcode"
-  (let ((program (parse-intcode stream)))
-    (eval-intcode program)))
+;; (defun read-and-eval-intcode (stream)
+;;   "Reads and evaluates a program
+;; written in Intcode"
+;;   (let ((program (parse-intcode stream)))
+;;     (eval-intcode program)))
 
-(defun read-and-eval-intcode-buffered (stream input-data)
-  "Reads and evaluates a program
-written in Intcode"
-  (let ((program (parse-intcode stream)))
-    (eval-intcode-buffered program input-data)))
+;; (defun read-and-eval-intcode-buffered (stream input-data)
+;;   "Reads and evaluates a program
+;; written in Intcode"
+;;   (let ((program (parse-intcode stream)))
+;;     (eval-intcode-buffered program input-data)))
+
+
+;; Scheduling-aware evaluator
+
+(defstruct sched
+  (data nil :type list))
+
+;; A simple round-robin scheduler
+(defun make-scheduler ()
+  (make-sched))
+
+(defun queue-routine (sched r)
+  (setf (sched-data sched)
+        (append (sched-data sched) (list r))))
+
+(defun enqueue-routine (sched)
+  (when (sched-data sched)
+    (let ((res (car (sched-data sched))))
+      (setf (sched-data sched)
+            (cdr (sched-data sched)))
+      res)))
+
+(defstruct chan
+  (buffer nil :type list))
+
+(defun write-chan (chan v)
+  (setf (chan-buffer chan)
+        (append (chan-buffer chan) (list v))))
+
+(defun read-chan (chan)
+  (if (chan-buffer chan)
+      (let ((res (car (chan-buffer chan))))
+        (setf (chan-buffer chan)
+              (cdr (chan-buffer chan)))
+        res)
+      (error "Empty channel")))
+
+(defun chan->list (chan)
+  (chan-buffer chan))
+
+(defun eval-intcode-scheduled (code out-channel &key (pc 0) (input nil))
+  (let ((input-data  input))
+    (labels ((rec (pc)
+               (let* ((inst   (decode-opcode (elt code pc)))
+                      (new-pc (run inst pc code)))
+                 (if (not new-pc)
+                     nil
+                     (rec new-pc)))))
+      (handler-bind ((input-condition
+                      (lambda (e)
+                        (if input-data
+                            (let ((i input-data))
+                              (setf input-data nil)
+                              (provide-input i))
+                            (return-from eval-intcode-scheduled
+                              (lambda (input)
+                                (eval-intcode-scheduled code
+                                                        out-channel
+                                                        :pc (input-condition-pc e)
+                                                        :input input))))))
+                     (output-condition
+                      (lambda (e)
+                        (write-chan out-channel (output-condition-value e))
+                        (receive-output))))
+        (rec pc)
+        nil))))

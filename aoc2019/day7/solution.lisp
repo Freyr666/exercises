@@ -44,27 +44,40 @@
   (try-amplifiers-settings stream))
 
 ;; Part Two
-
 (defun try-amplifiers-settings-recur (stream)
   (let ((code   (parse-intcode stream))
         (max    0)
         (perms  (gen-perms 5 10)))
     (dolist (perm perms)
-      (let ((res 0))
+      (let ((chan  (make-chan))
+            (sched (make-scheduler)))
+        (dolist (setting perm)
+          (let ((kont (eval-intcode-scheduled (copy-seq code)
+                                              chan
+                                              :input setting)))
+            (when kont
+              (queue-routine sched kont))))
+        ;; Write our initial value to channel
+        (write-chan chan 0)
+        ;; Main evaluation loop
         (block inf-loop
           (do ()
               (nil)
-            (let ((res-lst (list res)))
-              (dolist (v perm)
-                (setf res-lst (eval-intcode-buffered (copy-seq code)
-                                                     (cons v res-lst)))
-                (if (null res-lst)
-                    (return-from inf-loop)))
-              (setf res (car res-lst)))))
-        (when (> res max)
-          (setf max res))))
+            (let ((routine (enqueue-routine sched)))
+              (if (null routine)
+                  (return-from inf-loop)
+                  (let ((kont (funcall routine
+                                       (read-chan chan))))
+                    (when kont
+                      (queue-routine sched kont)))))))
+        (let ((res (apply #'max (chan->list chan))))
+          (when (> res max)
+            (setf max res)))))
     max))
 
 ;; Test 139629729
 (with-input-from-string (stream "3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5")
+  (try-amplifiers-settings-recur stream))
+
+(with-open-file (stream +input+)
   (try-amplifiers-settings-recur stream))
