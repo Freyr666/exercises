@@ -14,24 +14,164 @@
 
 (in-package :aoc.intcode)
 
+(defconstant +page-size+ 512)
+
+(defclass machine ()
+  ((memory   :type hash-table)
+   (pc       :type integer)
+   (base     :type integer)))
+
+(defmethod initialize-instance :after ((m machine) &key code)
+  (setf (slot-value m 'pc) 0)
+  (setf (slot-value m 'base) 0)
+  (setf (slot-value m 'memory) (make-hash-table))
+  (multiple-value-bind (page-num rest)
+      (truncate (length code) +page-size+)
+    (dotimes (p (1+ page-num))
+      (let* ((page (make-array (list +page-size+) :element-type 'integer))
+             (sz   (if (= p page-num)
+                       rest
+                       +page-size+)))
+        (dotimes (rel sz)
+          (setf (aref page rel)
+                (aref code (+ (* p +page-size+)
+                              rel))))
+        (setf (gethash p (slot-value m 'memory))
+              page)))))
+
+(defmethod update-pc ((m machine) (pc-offset integer))
+  (setf (slot-value m 'pc)
+        (+ (slot-value m 'pc)
+           pc-offset)))
+
+(defmethod set-pc ((m machine) (new-pc integer))
+  (setf (slot-value m 'pc)
+        new-pc))
+
+(defmethod update-base ((m machine) (base-offset integer))
+  (setf (slot-value m 'base)
+        (+ (slot-value m 'base)
+           base-offset)))
+
+(defun get-memory-page (m page-num)
+  (when (not (gethash page-num (slot-value m 'memory)))
+    (setf (gethash page-num (slot-value m 'memory))
+          (make-array (list +page-size+)
+                      :element-type 'integer)))
+  (gethash page-num (slot-value m 'memory)))
+
+(defun get-pc (m)
+  (slot-value m 'pc))
+
+(defun get-base (m)
+  (slot-value m 'base))
+
+(defmethod read-immediate ((m machine) (addr integer))
+  (multiple-value-bind (page-num offset)
+      (truncate addr +page-size+)
+    (let ((page (get-memory-page m page-num)))
+      (aref page offset))))
+      
+(defmethod read-position ((m machine) (addr integer))
+  (multiple-value-bind (page-num offset)
+      (truncate addr +page-size+)
+    (let* ((page (get-memory-page m page-num))
+           (pos  (aref page offset)))
+      (multiple-value-bind (page-num-imm offset-imm)
+          (truncate pos +page-size+)
+        ;; Small optimization in case we
+        ;; are looking for the same page
+        (if (= page-num-imm page-num)
+            (aref page offset-imm) 
+            (aref (get-memory-page m page-num-imm) offset-imm))))))
+
+(defmethod read-relative ((m machine) (addr integer))
+  (multiple-value-bind (page-num offset)
+      (truncate addr +page-size+)
+    (let* ((page (get-memory-page m page-num))
+           (pos  (+ (slot-value m 'base)
+                    (aref page offset))))
+      (multiple-value-bind (page-num-imm offset-imm)
+          (truncate pos +page-size+)
+        ;; Small optimization in case we
+        ;; are looking for the same page
+        (if (= page-num-imm page-num)
+            (aref page offset-imm) 
+            (aref (get-memory-page m page-num-imm) offset-imm))))))
+
+(defmethod write-immediate ((m machine) (addr integer) (v integer))
+  (multiple-value-bind (page-num offset)
+      (truncate addr +page-size+)
+    (let ((page (get-memory-page m page-num)))
+      (setf (aref page offset) v))))
+
+(defmethod write-position ((m machine) (addr integer) (v integer))
+  (multiple-value-bind (page-num offset)
+      (truncate addr +page-size+)
+    (let* ((page (get-memory-page m page-num))
+           (pos  (aref page offset)))
+      (multiple-value-bind (page-num-imm offset-imm)
+          (truncate pos +page-size+)
+        ;; Small optimization in case we
+        ;; are looking for the same page
+        (if (= page-num-imm page-num)
+            (setf (aref page offset-imm)
+                  v)
+            (setf (aref (get-memory-page m page-num-imm) offset-imm)
+                  v))))))
+
+(defmethod write-relative ((m machine) (addr integer) (v integer))
+  (multiple-value-bind (page-num offset)
+      (truncate addr +page-size+)
+    (let* ((page (get-memory-page m page-num))
+           (pos  (+ (slot-value m 'base)
+                    (aref page offset))))
+      (multiple-value-bind (page-num-imm offset-imm)
+          (truncate pos +page-size+)
+        ;; Small optimization in case we
+        ;; are looking for the same page
+        (if (= page-num-imm page-num)
+            (setf (aref page offset-imm)
+                  v)
+            (setf (aref (get-memory-page m page-num-imm) offset-imm)
+                  v))))))
+
 (defclass inst ()
   ((modes :type vector)))
 
-(defmethod direct-mode ((i inst) (id integer))
-  (let ((id (1- id))
+(defmethod arg-mode ((i inst) (arg-id integer))
+  (let ((id (1- arg-id))
         (pvec (slot-value i 'modes)))
     (if (>= id (length pvec))
-        nil
-        (equal (aref pvec id) :imm))))
+        :pos
+        (aref pvec id))))
+
+(defmethod read-arg ((i inst) (m machine) (n integer))
+  (let ((pc (get-pc m)))
+    (case (arg-mode i n)
+      ((:pos) (read-position m (+ pc n)))
+      ((:imm) (read-immediate m (+ pc n)))
+      ((:rel) (read-relative m (+ pc n))))))
+
+(defmethod read-opcode ((m machine))
+  (let ((pc (get-pc m)))
+    (read-immediate m pc)))
+
+(defmethod write-res ((i inst) (m machine) (n integer) (v integer))
+  (let ((pc (get-pc m)))
+    (case (arg-mode i n)
+      ((:pos) (write-position m (+ pc n) v))
+      ((:imm) (write-immediate m (+ pc n) v))
+      ((:rel) (write-relative m (+ pc n) v)))))
 
 (defclass halt (inst)
   ((modes :type vector :initform #())))
 
 (defclass input (inst)
-  ((modes :type vector :initform #())))
+  ((modes :type vector :initarg :modes)))
 
 (defclass output (inst)
-  ((modes :type vector :initform #())))
+  ((modes :type vector :initarg :modes)))
 
 (defclass addinst (inst)
   ((modes :type vector :initarg :modes)))
@@ -51,111 +191,94 @@
 (defclass equals (inst)
   ((modes :type vector :initarg :modes)))
 
-(defgeneric run (inst pc mem))
+(defclass adjust-base (inst)
+  ((modes :type vector :initarg :modes)))
 
-(defmethod run ((i halt) (pc integer) (mem vector))
+(defgeneric run (inst machine))
+
+(defmethod run ((i halt) (m machine))
   nil)
 
 (define-condition input-condition (error)
-  ((pc :initarg :pc :reader input-condition-pc)))
+  ((machine :initarg :machine :reader input-condition-pc)))
 
 (defun provide-input (x)
   (invoke-restart 'provide-input x))
 
-(defmethod run ((i input) (pc integer) (mem vector))
-  (let ((val (restart-case (error 'input-condition
-                                  :pc pc)
-               (provide-input (x) x)))
-        (result-pos (elt mem (+ pc 1))))
-    (setf (elt mem result-pos)
-          val)
-    (+ pc 2)))
+(defmethod run ((i input) (m machine))
+  (let* ((val (restart-case (error 'input-condition
+                                   :machine m)
+                (provide-input (x) x))))
+    (write-res i m 1 val)
+    (update-pc m 2)
+    t))
 
 (define-condition output-condition (error)
   ((value :initarg :value :reader output-condition-value)
-   (pc :initarg :pc :reader output-condition-pc)))
+   (machine :initarg :machine :reader output-condition-pc)))
 
 (defun receive-output ()
   (invoke-restart 'receive-output))
 
-(defmethod run ((i output) (pc integer) (mem vector))
-  (let ((result-pos (elt mem (+ pc 1))))
+(defmethod run ((i output) (m machine))
+  (let* ((val (read-arg i m 1)))
     (print (restart-case
                (error 'output-condition
-                      :value (elt mem result-pos)
-                      :pc    pc)
+                      :value   val
+                      :machine m)
              (receive-output () nil)))
-    (+ pc 2)))
+    (update-pc m 2)
+    t))
 
-(defmethod run ((i addinst) (pc integer) (mem vector))
-  (let ((arg-1 (if (direct-mode i 1)
-                   (elt mem (+ pc 1))
-                   (elt mem (elt mem (+ pc 1)))))
-        (arg-2 (if (direct-mode i 2)
-                   (elt mem (+ pc 2))
-                   (elt mem (elt mem (+ pc 2)))))
-        (result-pos (elt mem (+ pc 3))))
-    (setf (elt mem result-pos)
-          (+ arg-1 arg-2))
-    (+ pc 4)))
+(defmethod run ((i addinst) (m machine))
+  (let ((arg-1 (read-arg i m 1))
+        (arg-2 (read-arg i m 2)))
+    (write-res i m 3 (+ arg-1 arg-2))
+    (update-pc m 4)
+    t))
 
-(defmethod run ((i mulinst) (pc integer) (mem vector))
-  (let ((arg-1 (if (direct-mode i 1)
-                   (elt mem (+ pc 1))
-                   (elt mem (elt mem (+ pc 1)))))
-        (arg-2 (if (direct-mode i 2)
-                   (elt mem (+ pc 2))
-                   (elt mem (elt mem (+ pc 2)))))
-        (result-pos (elt mem (+ pc 3))))
-    (setf (elt mem result-pos)
-          (* arg-1 arg-2))
-    (+ pc 4)))
+(defmethod run ((i mulinst) (m machine))
+  (let ((arg-1 (read-arg i m 1))
+        (arg-2 (read-arg i m 2)))
+    (write-res i m 3 (* arg-1 arg-2))
+    (update-pc m 4)
+    t))
 
-(defmethod run ((i jump-if-true) (pc integer) (mem vector))
-  (let ((arg-1 (if (direct-mode i 1)
-                   (elt mem (+ pc 1))
-                   (elt mem (elt mem (+ pc 1)))))
-        (arg-2 (if (direct-mode i 2)
-                   (elt mem (+ pc 2))
-                   (elt mem (elt mem (+ pc 2))))))
+(defmethod run ((i jump-if-true) (m machine))
+  (let ((arg-1 (read-arg i m 1))
+        (arg-2 (read-arg i m 2)))
     (if (not (zerop arg-1))
-        arg-2
-        (+ pc 3))))
+        (set-pc m arg-2)
+        (update-pc m 3))
+    t))
 
-(defmethod run ((i jump-if-false) (pc integer) (mem vector))
-  (let ((arg-1 (if (direct-mode i 1)
-                   (elt mem (+ pc 1))
-                   (elt mem (elt mem (+ pc 1)))))
-        (arg-2 (if (direct-mode i 2)
-                   (elt mem (+ pc 2))
-                   (elt mem (elt mem (+ pc 2))))))
+(defmethod run ((i jump-if-false) (m machine))
+  (let ((arg-1 (read-arg i m 1))
+        (arg-2 (read-arg i m 2)))
     (if (zerop arg-1)
-        arg-2
-        (+ pc 3))))
+        (set-pc m arg-2)
+        (update-pc m 3))
+    t))
 
-(defmethod run ((i less-than) (pc integer) (mem vector))
-  (let ((arg-1 (if (direct-mode i 1)
-                   (elt mem (+ pc 1))
-                   (elt mem (elt mem (+ pc 1)))))
-        (arg-2 (if (direct-mode i 2)
-                   (elt mem (+ pc 2))
-                   (elt mem (elt mem (+ pc 2)))))
-        (result-pos (elt mem (+ pc 3))))
-    (setf (elt mem result-pos)
-          (if (< arg-1 arg-2) 1 0))
-    (+ pc 4)))
+(defmethod run ((i less-than) (m machine))
+  (let ((arg-1 (read-arg i m 1))
+        (arg-2 (read-arg i m 2)))
+    (write-res i m 3 (if (< arg-1 arg-2) 1 0))
+    (update-pc m 4)
+    t))
 
-(defmethod run ((i equals) (pc integer) (mem vector))
-  (let ((arg-1 (if (direct-mode i 1)
-                   (elt mem (+ pc 1))
-                   (elt mem (elt mem (+ pc 1)))))
-        (arg-2 (if (direct-mode i 2)
-                   (elt mem (+ pc 2))
-                   (elt mem (elt mem (+ pc 2)))))
-        (result-pos (elt mem (+ pc 3))))
-    (setf (elt mem result-pos)
-          (if (= arg-1 arg-2) 1 0))
-    (+ pc 4)))
+(defmethod run ((i equals) (m machine))
+  (let ((arg-1 (read-arg i m 1))
+        (arg-2 (read-arg i m 2)))
+    (write-res i m 3 (if (= arg-1 arg-2) 1 0))
+    (update-pc m 4)
+    t))
+
+(defmethod run ((i adjust-base) (m machine))
+  (let ((arg-1 (read-arg i m 1)))
+    (update-base m arg-1)
+    (update-pc m 2)
+    t))
   
 ;;
 ;; Parser
@@ -188,38 +311,47 @@
 (defun decode-opcode (code)
   (multiple-value-bind
         (params op) (truncate code 100)
-    (let ((pvec (map 'vector (lambda (c) (if (char= c #\0) :pos :imm))
+    (let ((pvec (map 'vector (lambda (c) (case c
+                                           ((#\0) :pos)
+                                           ((#\1) :imm)
+                                           ((#\2) :rel)))
                      (reverse (format nil "~d" params)))))
       (case op
         ((99) (make-instance 'halt))
         ((1)  (make-instance 'addinst :modes pvec))
         ((2)  (make-instance 'mulinst :modes pvec))
-        ((3)  (make-instance 'input))
-        ((4)  (make-instance 'output))
+        ((3)  (make-instance 'input :modes pvec))
+        ((4)  (make-instance 'output :modes pvec))
         ((5)  (make-instance 'jump-if-true :modes pvec))
         ((6)  (make-instance 'jump-if-false :modes pvec))
         ((7)  (make-instance 'less-than :modes pvec))
         ((8)  (make-instance 'equals :modes pvec))
+        ((9)  (make-instance 'adjust-base :modes pvec))
         (t    (error op "Wrong opcode"))))))
 
+(defun evaluate (m)
+  (labels ((rec ()
+             (let* ((inst    (decode-opcode (read-opcode m)))
+                    (running (run inst m)))
+               (if (not running)
+                   nil
+                   (rec)))))
+    (rec)))
+
 (defun eval-intcode (code)
-  (handler-bind ((input-condition (lambda (ignore)
-                                    (format t "Please provide a number:~%")
-                                    (provide-input (parse-integer (read-line)))))
-                 (output-condition (lambda (e)
-                                     (format t "Output: ~A~%" (output-condition-value e))
-                                     (receive-output))))
-    (labels ((rec (pc)
-               (let* ((inst   (decode-opcode (elt code pc)))
-                      (new-pc (run inst pc code)))
-                 (if (not new-pc)
-                     code
-                     (rec new-pc)))))
-      (rec 0))))
+  (let ((machine (make-instance 'machine :code code)))
+    (handler-bind ((input-condition (lambda (ignore)
+                                      (format t "Please provide a number:~%")
+                                      (provide-input (parse-integer (read-line)))))
+                   (output-condition (lambda (e)
+                                       (format t "Output: ~A~%" (output-condition-value e))
+                                       (receive-output))))
+      (evaluate machine))))
 
 (defun eval-intcode-buffered (code input-data)
   (let ((output '())
-        (input  input-data))
+        (input  input-data)
+        (machine (make-instance 'machine :code code)))
     (handler-bind ((input-condition (lambda (ignore)
                                       (if input
                                           (let ((v (car input)))
@@ -230,27 +362,8 @@
                                        (setf output (cons (output-condition-value e)
                                                           output))
                                        (receive-output))))
-      (labels ((rec (pc)
-                 (let* ((inst   (decode-opcode (elt code pc)))
-                        (new-pc (run inst pc code)))
-                   (if (not new-pc)
-                       code
-                       (rec new-pc)))))
-        (rec 0)
-        (reverse output)))))
-
-;; (defun read-and-eval-intcode (stream)
-;;   "Reads and evaluates a program
-;; written in Intcode"
-;;   (let ((program (parse-intcode stream)))
-;;     (eval-intcode program)))
-
-;; (defun read-and-eval-intcode-buffered (stream input-data)
-;;   "Reads and evaluates a program
-;; written in Intcode"
-;;   (let ((program (parse-intcode stream)))
-;;     (eval-intcode-buffered program input-data)))
-
+      (evaluate machine)
+      (reverse output))))
 
 ;; Scheduling-aware evaluator
 
@@ -290,29 +403,26 @@
 (defun chan->list (chan)
   (chan-buffer chan))
 
-(defun eval-intcode-scheduled (code out-channel &key (pc 0) (input nil))
+(defun eval-intcode-scheduled-local (machine out-channel &key (input nil))
   (let ((input-data  input))
-    (labels ((rec (pc)
-               (let* ((inst   (decode-opcode (elt code pc)))
-                      (new-pc (run inst pc code)))
-                 (if (not new-pc)
-                     nil
-                     (rec new-pc)))))
-      (handler-bind ((input-condition
-                      (lambda (e)
-                        (if input-data
-                            (let ((i input-data))
-                              (setf input-data nil)
-                              (provide-input i))
-                            (return-from eval-intcode-scheduled
-                              (lambda (input)
-                                (eval-intcode-scheduled code
-                                                        out-channel
-                                                        :pc (input-condition-pc e)
-                                                        :input input))))))
-                     (output-condition
-                      (lambda (e)
-                        (write-chan out-channel (output-condition-value e))
-                        (receive-output))))
-        (rec pc)
-        nil))))
+    (handler-bind ((input-condition
+                    (lambda (e)
+                      (if input-data
+                          (let ((i input-data))
+                            (setf input-data nil)
+                            (provide-input i))
+                          (return-from eval-intcode-scheduled
+                            (lambda (input)
+                              (eval-intcode-scheduled machine
+                                                      out-channel
+                                                      :input input))))))
+                   (output-condition
+                    (lambda (e)
+                      (write-chan out-channel (output-condition-value e))
+                      (receive-output))))
+        (evaluate machine)
+        nil)))
+
+(defun eval-intcode-scheduled (code out-channel)
+  (let ((machine (make-instance 'machine :code code)))
+    (eval-intcode-scheduled-local machine out-channel)))
