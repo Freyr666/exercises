@@ -111,20 +111,24 @@
   "Result is ((invisible) . (visible))"
   (partition (lambda (o) (vector-col center p o)) lst))
 
-(defvar *pi-x-2* (* (atan 1) 8))
+(defvar *pi* (* (atan 1) 4))
 
 (defun degree (vec)
   (destructuring-bind ((x1 . y1) . (x2 . y2))
       vec
-    (let* ((x (- x2 x1))
-           (y (- y1 y2)) ;; Up is actually under lower Y
-           (rads (acos (/ (abs y)
-                          (sqrt (+ (expt x 2)
-                                   (expt y 2)))))))
-      (if (< x 0)
-          (- *pi-x-2* rads)
-          rads))))
-
+    (if (> x2 x1)
+        (let* ((x (- x2 x1))
+               (y (- y1 y2))) ;; Up is actually under lower Y
+          (acos (/ y
+                   (sqrt (+ (* x x)
+                            (* y y))))))
+        (let* ((x (- x1 x2))
+               (y (- y2 y1))) ;; Up is actually under lower Y
+          (+ (acos (/ y
+                      (sqrt (+ (* x x)
+                               (* y y)))))
+             *pi*)))))
+  
 (defun sort-clockwise (base points)
   (flet ((pred (p-1 p-2)
            (< (degree (cons base p-1))
@@ -165,14 +169,6 @@
                   (setf stage s)
                   (return)))))
         (setf stage (sort-clockwise base-coord stage))
-        (mapcar (lambda (a)
-                  (incf c)
-                  (format t
-                          "~d Coord: ~a Degree: ~a~%"
-                          c
-                          a
-                          (degree (cons base-coord a))))
-                stage)
         (values (nth pos stage) pos)))))
 
 (with-open-file (stream +input+)
