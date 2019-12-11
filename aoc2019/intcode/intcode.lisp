@@ -411,11 +411,11 @@
                           (let ((i input-data))
                             (setf input-data nil)
                             (provide-input i))
-                          (return-from eval-intcode-scheduled
+                          (return-from eval-intcode-scheduled-local
                             (lambda (input)
-                              (eval-intcode-scheduled machine
-                                                      out-channel
-                                                      :input input))))))
+                              (eval-intcode-scheduled-local machine
+                                                            out-channel
+                                                            :input input))))))
                    (output-condition
                     (lambda (e)
                       (write-chan out-channel (output-condition-value e))
