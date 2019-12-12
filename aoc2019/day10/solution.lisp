@@ -1,5 +1,7 @@
 (defconstant +input+ "./input")
 
+(setq *read-default-float-format* 'double-float)
+
 (defun parse-asteroids (stream)
   (let ((asteroids '())
         (x 0)
@@ -111,24 +113,20 @@
   "Result is ((invisible) . (visible))"
   (partition (lambda (o) (vector-col center p o)) lst))
 
-(defvar *pi* (* (atan 1) 4))
+(defvar *pi-*-2* (* (atan 1.0) 8.0))
 
 (defun degree (vec)
   (destructuring-bind ((x1 . y1) . (x2 . y2))
       vec
-    (if (> x2 x1)
-        (let* ((x (- x2 x1))
-               (y (- y1 y2))) ;; Up is actually under lower Y
-          (acos (/ y
-                   (sqrt (+ (* x x)
-                            (* y y))))))
-        (let* ((x (- x1 x2))
-               (y (- y2 y1))) ;; Up is actually under lower Y
-          (+ (acos (/ y
-                      (sqrt (+ (* x x)
-                               (* y y)))))
-             *pi*)))))
-  
+    (let* ((x (- x2 x1))
+           (y (- y1 y2)) ;; Up is actually under lower Y
+           (rads (acos (/ y
+                          (sqrt (+ (expt x 2.0)
+                                   (expt y 2.0)))))))
+      (if (< x 0)
+          (- *pi-*-2* rads)
+          rads))))
+
 (defun sort-clockwise (base points)
   (flet ((pred (p-1 p-2)
            (< (degree (cons base p-1))
@@ -139,7 +137,6 @@
   (let ((rest       (delete-if (lambda (x) (equal base-coord x))
                                asteroids))
         (stages     '()))
-    (print (mapcar (lambda (a) (cons a (degree (cons base-coord a)))) asteroids))
     (labels ((traverse (stage invis lst)
                (if (null lst)
                    (values stage (apply #'append invis))
@@ -169,7 +166,7 @@
                   (setf stage s)
                   (return)))))
         (setf stage (sort-clockwise base-coord stage))
-        (values (nth pos stage) pos)))))
+        (values (nth (1- pos) stage) pos)))))
 
 (with-open-file (stream +input+)
   (find-200th-asteroid base-coord (parse-asteroids stream)))
