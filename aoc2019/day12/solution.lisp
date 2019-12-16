@@ -100,9 +100,13 @@
              (when tl
                (adjust (car tl) (cdr tl)))))
     (let ((var   (mapcar #'copy-celestial bodies))
+          (order 1)
           (step  0))
       (do ()
           (nil)
+        (when (> step order)
+          (setf order (* order 10))
+          (print step))
         (adjust (car var) (cdr var))
         (mapcar #'move var)
         (incf step)

@@ -8,6 +8,7 @@
            :queue-routine
            :enqueue-routine
            :make-chan
+           :chan-empty-p
            :write-chan
            :read-chan
            :chan->list))
@@ -222,11 +223,11 @@
 
 (defmethod run ((i output) (m machine))
   (let* ((val (read-arg i m 1)))
-    (print (restart-case
-               (error 'output-condition
-                      :value   val
-                      :machine m)
-             (receive-output () nil)))
+    (restart-case
+        (error 'output-condition
+               :value   val
+               :machine m)
+      (receive-output () nil))
     (update-pc m 2)
     t))
 
@@ -387,6 +388,9 @@
 
 (defstruct chan
   (buffer nil :type list))
+
+(defun chan-empty-p (chan)
+  (null (chan-buffer chan)))
 
 (defun write-chan (chan v)
   (setf (chan-buffer chan)
