@@ -35,6 +35,57 @@ would be rewritten as
                       :initial-value expr)))
     `(,@body)))
 
+;;
+;; Simple nondeterministic computations
+;;
+(defun nondetp (x)
+  (equal (car x)
+         'nondet-tag))
+
+(deftype nondet ()
+  `(and list
+        (satisfies nondetp)))
+
+(declaim (ftype (function (t &rest list) nondet) either))
+(defun either (first &rest others)
+  (the nondet (cons 'nondet-tag (cons first others))))
+
+(declaim (ftype (function (nondet) list) nondet->list))
+(defun nondet->list (x)
+  (cdr x))
+
+(declaim (ftype (function (t) nondet) nondet-return))
+(defun nondet-return (x)
+  (either x))
+
+(defun concat (list-of-lists)
+  (when list-of-lists
+    (let ((current (reverse (car list-of-lists)))
+          (done    (concat (cdr list-of-lists))))
+      (dolist (el current)
+        (setf done (cons el done)))
+      done)))
+
+(declaim (ftype (function (list) nondet) concat-nondets))
+(defun concat-nondets (lst)
+  (cons 'nondet-tag
+        (concat (mapcar #'cdr lst))))
+
+(defmacro nondet-let (binding &body body)
+  (let ((symb     (first binding))
+        (variants (second binding)))
+    `(concat-nondets
+      (mapcar (lambda (v)
+                (let ((res 
+                       (let ((,symb v))
+                         ,@body)))
+                  (the nondet res)))
+              ,variants))))
+
+;;
+;; End
+;;
+
 (defun split-string (string &optional (delim " "))
   (let ((toks '())
         (cur  (make-string-output-stream))
