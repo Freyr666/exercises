@@ -35,6 +35,18 @@ would be rewritten as
                       :initial-value expr)))
     `(,@body)))
 
+(defun make-ingred (name mass ingreds)
+  (list name mass ingreds))
+
+(defun ingred-name (ingred)
+  (car ingred))
+
+(defun ingred-mass (ingred)
+  (cadr ingred))
+
+(defun ingred-list (ingred)
+  (caddr ingred))
+
 (defun split-string (string &optional (delim " "))
   (let ((toks '())
         (cur  (make-string-output-stream))
@@ -85,56 +97,58 @@ would be rewritten as
                    (ingr (mapcar #'split-string raw))
                    (res  (split-string ts)))
               (destructuring-bind (res-mol res-name) res
-                (let ((reaction (list (intern res-name)
-                                      (parse-integer res-mol)
-                                      (mapcar (lambda (x) (cons (intern (cadr x))
-                                                                (parse-integer (car x))))
-                                              ingr))))
+                (let ((reaction (make-ingred (intern res-name)
+                                             (parse-integer res-mol)
+                                             (mapcar (lambda (x) (cons (intern (cadr x))
+                                                                       (parse-integer (car x))))
+                                                     ingr))))
                   (setf reacts (cons reaction reacts)))))))
     reacts))
 
-(defun find-min-ingredients (subst reactions)
-  (labels ((find-min (pair)
-             (destructuring-bind (name . mol) pair
-               (let ((possible (remove-if-not (lambda (x) (eq (car x)
-                                                              name))
-                                              reactions)))
-                 (->> possible
-                      (mapcar (lambda (x)
-                                (destructuring-bind (n m ings) x
-                                  (let* ((coef (ceiling mol m))
-                                         (new-m (* m coef))
-                                         (adjusted-by-mol
-                                          (mapcar (lambda (p)
-                                                    (cons (car p)
-                                                          (* (cdr p) coef)))
-                                                  ings)))
-                                    (find-min-ingredients (list n new-m adjusted-by-mol)
-                                                          reactions)))))
-                      (apply #'min)))))
-           (get-min-ore (pair)
-             (if (eq (car pair)
-                     'ore)
-                 (cdr pair)
-                 (find-min pair))))
-    (let ((needed (caddr subst)))
-      (let ((res (->> needed
-                      (mapcar #'get-min-ore)
-                      (apply #'+))))
-        (format t "~A needs ~d ORE~%" subst res)
-        res))))
+(defun create-reaction-table (list)
+  (let ((table (make-hash-table :test 'equal)))
+    (dolist (entry list)
+      (destructuring-bind (n q lst) entry
+        (setf (gethash n table)
+              (cons q lst))))
+    table))
 
+(defun scale-molar-mass (factor ingreds)
+  (mapcar (lambda (p) (destructuring-bind (n . m) p
+                        (cons n (* factor m))))
+          ingreds))
+
+(defun find-min-ingredients (reactions &optional (stock (make-hash-table :test 'equal)))
+  (let ((table (create-reaction-table reactions)))
+    (labels ((calc (name required-mass)
+               (let ((in-stock (min required-mass
+                                    (or (gethash name stock) 0))))
+                 (decf required-mass in-stock)
+                 (when (gethash name stock)
+                   (decf (gethash name stock) in-stock)))
+               (cond ((equal 'ORE name)   required-mass)
+                     ((= required-mass 0) 0)
+                     (t (destructuring-bind (amount . ingreds) (gethash name table)
+                          (let* ((factor    (ceiling required-mass amount))
+                                 (obtained  (* factor amount))
+                                 (excessive (- obtained required-mass))
+                                 (cost      (reduce #'+
+                                                    (mapcar (lambda (pair)
+                                                              (calc (car pair) (cdr pair)))
+                                                            (scale-molar-mass factor ingreds)))))
+                            (setf (gethash name stock)
+                                  (+ excessive
+                                     (or (gethash name stock) 0)))
+                            cost))))))
+      (calc 'FUEL 1))))
+                                    
 ;; Subst : (name molar-mass ingreds) -> reactions -> int
 (defun evaluate-needed-ore (subst reactions)
   '())
 
 (with-open-file (stream +input+)
   (let ((reactions (parse-reactions stream)))
-    (->> reactions
-         (remove-if (lambda (x) (not (eq (car x)
-                                         'fuel))))
-         car
-         (lambda (f) (find-min-ingredients f reactions)))))
+    (find-min-ingredients reactions)))
   
 ;; Test 180697
 (with-input-from-string (stream "2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG
@@ -150,23 +164,4 @@ would be rewritten as
 1 VJHF, 6 MNCFX => 4 RFSQX
 176 ORE => 6 VJHF")
   (let ((reactions (parse-reactions stream)))
-    (->> reactions
-         (remove-if (lambda (x) (not (eq (car x)
-                                         'fuel))))
-         car
-         (lambda (f) (find-min-ingredients f reactions)))))
-
-;; Test 165
-(with-input-from-string (stream "9 ORE => 2 A
-8 ORE => 3 B
-7 ORE => 5 C
-3 A, 4 B => 1 AB
-5 B, 7 C => 1 BC
-4 C, 1 A => 1 CA
-2 AB, 3 BC, 4 CA => 1 FUEL")
-  (let ((reactions (parse-reactions stream)))
-    (->> reactions
-         (remove-if (lambda (x) (not (eq (car x)
-                                         'fuel))))
-         car
-         (lambda (f) (find-min-ingredients f reactions)))))
+    (find-min-ingredients reactions)))
