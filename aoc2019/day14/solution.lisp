@@ -118,7 +118,8 @@ would be rewritten as
                         (cons n (* factor m))))
           ingreds))
 
-(defun find-min-ingredients (reactions &optional (stock (make-hash-table :test 'equal)))
+(defun find-min-ingredients (name amount reactions
+                             &optional (stock (make-hash-table :test 'equal)))
   (let ((table (create-reaction-table reactions)))
     (labels ((calc (name required-mass)
                (let ((in-stock (min required-mass
@@ -140,7 +141,7 @@ would be rewritten as
                                   (+ excessive
                                      (or (gethash name stock) 0)))
                             cost))))))
-      (calc 'FUEL 1))))
+      (calc name amount))))
                                     
 ;; Subst : (name molar-mass ingreds) -> reactions -> int
 (defun evaluate-needed-ore (subst reactions)
@@ -148,7 +149,7 @@ would be rewritten as
 
 (with-open-file (stream +input+)
   (let ((reactions (parse-reactions stream)))
-    (find-min-ingredients reactions)))
+    (find-min-ingredients 'FUEL 1 reactions)))
   
 ;; Test 180697
 (with-input-from-string (stream "2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG
@@ -165,3 +166,24 @@ would be rewritten as
 176 ORE => 6 VJHF")
   (let ((reactions (parse-reactions stream)))
     (find-min-ingredients reactions)))
+
+;; Part Two
+(defun binary-search-fuel-amount (reactions ore-amount)
+  (labels ((try (ore lower upper)
+             ;;(format t "Prev result: ~A; Boundary [~A ~A]~%" ore lower upper)
+             (if (or (= lower upper)
+                     (= (- upper lower)
+                        1))
+                 lower
+                 (let* ((middle  (+ (ceiling (- upper lower)
+                                             2)
+                                    lower))
+                        (new-ore (find-min-ingredients 'FUEL middle reactions)))
+                   (cond ((= new-ore ore-amount) middle)
+                         ((> new-ore ore-amount) (try new-ore lower middle))
+                         (t                      (try ore middle upper)))))))
+    (try ore-amount 0 ore-amount)))
+                         
+(with-open-file (stream +input+)
+  (let ((reactions (parse-reactions stream)))
+    (binary-search-fuel-amount reactions 1000000000000)))
