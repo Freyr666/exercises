@@ -3,7 +3,7 @@
 (** Before getting started, we need to import all of our
     definitions from the previous chapter: *)
 
-Require Export Basics.
+Require Export BasicsLoc.
 
 (** For the [Require Export] to work, you first need to use
     [coqc] to compile [Basics.v] into [Basics.vo].  This is like
@@ -178,13 +178,13 @@ Proof. intros. induction n as [| n' IH ].
     induction hypothesis about [n - 2]. The following lemma gives an
     alternative characterization of [evenb (S n)] that works better
     with induction: *)
-
+(*
 Theorem evenb_S : forall n : nat,
   evenb (S n) = negb (evenb n).
 Proof. intros. induction n as [| n' IH ].
        -  reflexivity.
        - rewrite -> IH. simpl. rewrite -> negb_involutive. reflexivity. Qed.
-
+*)
 (** **** Exercise: 1 star (destruct_induction)  *)
 (** Briefly explain the difference between the tactics [destruct]
     and [induction].

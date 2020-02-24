@@ -1,6 +1,6 @@
 #!/bin/sh
 
-coqc Basics.v
+coqc BasicsLoc.v
 coqc Induction.v
 coqc Lists.v
 coqc Poly.v

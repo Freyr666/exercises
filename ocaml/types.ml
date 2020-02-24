@@ -1,18 +1,10 @@
 type (_,_) eq = Refl : ('a, 'a) eq
 
-type z
-type 'a s = Stemp : 'a -> 'a s
-
-type (_,_) le =
-  | LeZ : (z,'a) le
-  | LeS : ('a,'b) le -> ('a,'b s) le
-  
-type _ isnat =
-  | Z : z isnat
-  | S : 'a isnat -> 'a s isnat
+type z = Z : z
+type 'a s = S : 'a -> 'a s
 
 type (_,_,_) add =
-  | Add_base : 'a isnat -> (z, 'a, 'a) add
+  | Add_base : 'a -> (z, 'a, 'a) add
   | Add_step : ('a, 'b, 'c) add -> ('a s, 'b, 'c s) add
 
 let rec lemma_add_l_s_pred :
@@ -22,11 +14,9 @@ let rec lemma_add_l_s_pred :
   | Add_base (S x) -> Add_base x
   | Add_step s -> (lemma_add_l_s_pred (Add_step s))
 
-let rec theorem_add_comm :
-          type a b p q . (a, b, p) add -> (b, a, q) add -> (p, q) eq
-  =
+let rec theorem_add_comm : type a b p q. (a, b, p) add -> (b, a, q) add -> (p, q) eq =
   function
-  | Add_base Z -> (function Add_base Z -> Refl)
+  | Add_base  -> (function Add_base Z -> Refl)
   | Add_base (S y) -> (function Add_step s ->
                          let Refl = theorem_add_comm (Add_base y) s in
                          Refl)
@@ -63,26 +53,6 @@ let rec theorem_add_assoc :
      let Refl = theorem_add_assoc ab' ab_c' bc a_bc' in
      Refl
 
-type (_,_) list =
-  | []   : (z,'a) list
-  | (::) : ('a * ('l,'a) list) -> ('l s, 'a) list
-
-let hd : type l. (l s, 'a) list -> 'a = function x::_ -> x
-
-let tl : type l. (l s, 'a) list -> (l, 'a) list = function _::tl -> tl
-
-let _ = assert (hd [1] = 1)
-
-let rec map : type l a b. (a -> b) -> (l, a) list -> (l, b) list =
-  fun f ->
-  function
-  | []    -> []
-  | x::tl -> (f x) :: (map f tl)
-
-let rec append : type m n l. (m, n, l) add -> (m, 'a) list -> (n, 'a) list -> (l, 'a) list =
-  function
-  | Add_base _ -> (fun [] l2 -> l2)
-  | Add_step s -> (function x::tl -> fun l2 -> x :: (append s tl l2))
-
-let _ =
-  assert (tl @@ append (Add_step (Add_step (Add_base (S (S (S Z)))))) [1;2] [3;4;5] = [2;3;4;5])
+type (_,_) le =
+  | Le_eq : 'a -> (z,'a) le
+  | Le_gt : ('a,'b) le -> ('a,'b s) le
