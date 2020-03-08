@@ -51,3 +51,17 @@ E.g. given 'aaabaaacacd' returns b."
       (dolist (char stack)
         (when (zerop (gethash char table))
           (return char))))))
+
+(defun array-multiply-all-but-i (array)
+  "Given an ARRAY, returns an OUTPUT where
+each element OUTPUT[i] is a multiplication
+of \prod(ARRAY[x]) where x != i"
+  (let ((prod (reduce #'* array)))
+    (map 'vector (lambda (x) (/ prod x)) array)))
+
+(defun test-array-multiply-all-but-i ()
+  (let ((cases  '((#(1 2 3 4) . #(24 12 8 6))
+                  (#(6 12 8 3) . #(288 144 216 576)))))
+    (dolist (c cases)
+      (assert (equalp (array-multiply-all-but-i (car c))
+                      (cdr c))))))
