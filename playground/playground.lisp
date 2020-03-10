@@ -65,3 +65,24 @@ of \prod(ARRAY[x]) where x != i"
     (dolist (c cases)
       (assert (equalp (array-multiply-all-but-i (car c))
                       (cdr c))))))
+
+(defun max-consecutive-subarray-sum (array)
+  "Given an ARRAY of integers finds the largest
+sum of a contiguous subarray"
+  (declare (type (simple-array integer (*)) array)
+           (optimize (speed 3)))
+  (let* ((max (aref array 0))
+         (cur max))
+    (do ((i 1))
+        ((= i (array-dimension array 0)))
+      (setf cur (max (aref array i)
+                     (+ (aref array i) cur)))
+      (setf max (max cur max))
+      (incf i))
+    max))
+
+(defun test-max-consecutive-subarray-sum ()
+  (let ((cases   '((#(-2 2 5 -11 6) . 7))))
+    (dolist (c cases)
+      (assert (equalp (max-consecutive-subarray-sum (car c))
+                      (cdr c))))))
