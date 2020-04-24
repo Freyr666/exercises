@@ -1,15 +1,14 @@
-import java.lang.Math;
 import edu.princeton.cs.algs4.StdRandom;
 import edu.princeton.cs.algs4.StdStats;
 
 public class PercolationStats {
 
-    double sqrtTrials;
-    double results[];
-    Double mean = null;
-    Double stddev = null;
-    Double lo = null;
-    Double hi = null;
+    private final double sqrtTrials;
+    private final double[] results;
+    private Double mean = null;
+    private Double stddev = null;
+    private Double lo = null;
+    private Double hi = null;
        
     // perform independent trials on an n-by-n grid
     public PercolationStats(int n, int trials) {
@@ -26,7 +25,7 @@ public class PercolationStats {
                        StdRandom.uniform(n) + 1);
             }
             results[iter] =
-                (double)p.numberOfOpenSites()
+                (double) p.numberOfOpenSites()
                 / (double) (n * n);
         }
     }

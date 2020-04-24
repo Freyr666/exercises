@@ -1,15 +1,13 @@
-import java.util.Arrays;
-import java.util.Optional;
 import edu.princeton.cs.algs4.WeightedQuickUnionUF;
 
 public class Percolation {
 
-    WeightedQuickUnionUF conns;
-    boolean opened[];
-    int openedNum;
-    int virtualTop;
-    int virtualBottom;
-    int size;
+    private final WeightedQuickUnionUF conns;
+    private final boolean[] opened;
+    private int openedNum;
+    private final int virtualTop;
+    private final int virtualBottom;
+    private final int size;
     
     public Percolation(int n) {
         if (n <= 0)
@@ -21,105 +19,84 @@ public class Percolation {
 
         opened = new boolean[n*n];
         openedNum = 0;
-        Arrays.fill(opened, false);
+
+        for (int i = 0; i < n*n; i++)
+            opened[i] = false;
 
         conns = new WeightedQuickUnionUF(n * n + 2);
     }
 
-    boolean opened(int id) {
-        if (id == virtualTop || id == virtualBottom)
-            return true;
-        else
-            return opened[id];
-    }
-
-    int upper(int id) {
-        int res = id - size;
-        if (res < 0)
-            return virtualTop;
-        else
-            return res;
-    }
-
-    int lower(int id) {
-        int res = id + size;
-        if (res > size * size)
-            return virtualBottom;
-        else
-            return res;
-    }
-
-    Optional<Integer> left(int id) {
-        if (id % size == 0)
-            return Optional.empty();
-        else
-            return Optional.of(id - 1);
-    }
-
-    Optional<Integer> right(int id) {
-        if (id % size == size - 1)
-            return Optional.empty();
-        else
-            return Optional.of(id + 1);
-    }
-    
-    public void open(int row, int col) {
+    private void checkArgs(int row, int col) {
         if (row <= 0
             || row > size
             || col <= 0
             || col > size)
             throw new IllegalArgumentException();
+    }
 
-        int id = (row - 1) * size + (col - 1);
-        if (opened[id])
+    private int toId(int row, int col) {
+        if (row == 0) {
+            return virtualTop;
+        } else if (row == size + 1) {
+            return virtualBottom;
+        } else {
+            int id = (row - 1) * size + (col - 1);
+            return id;
+        }
+    }
+    
+    private void connect(int id, int row, int col) {
+        if (row < 0
+            || row > size + 1
+            || col <= 0
+            || col > size)
             return;
+
+        int dest = toId(row, col);
+
+        try {
+            if (row > 0 && row <= size) {
+                if (isOpen(row, col))
+                    conns.union(id, dest);
+            } else {
+                conns.union(id, dest);
+            }
+        }
+        catch (IllegalArgumentException e) {
+            return;
+        }
+    }
+    
+    public void open(int row, int col) {
+        checkArgs(row, col);
+
+        if (isOpen(row, col))
+            return;
+
+        int id = toId(row, col);
 
         openedNum++;
         opened[id] = true;
 
-        int upper = upper(id);
-        if (opened(upper))
-            conns.union(id, upper);
-
-        int lower = lower(id);
-        if (opened(lower))
-            conns.union(id, lower);
-
-        Optional<Integer> left = left(id);
-        if (left.isPresent()) {
-            int l = left.get();
-            if (opened(l))
-                conns.union(id, l);
-        }
-
-        Optional<Integer> right = right(id);
-        if (right.isPresent()) {
-            int r = right.get();
-            if (opened(r))
-                conns.union(id, r);
-        }
-                     
+        connect(id, row - 1, col);
+        connect(id, row + 1, col);
+        connect(id, row, col - 1);
+        connect(id, row, col + 1);
     }
 
     public boolean isOpen(int row, int col) {
-        if (row <= 0
-            || row > size
-            || col <= 0
-            || col > size)
-            throw new IllegalArgumentException();
+        checkArgs(row, col);
 
-        int id = (row - 1) * size + (col - 1);
-        return opened(id);
+        int id = toId(row, col);
+        return id == virtualTop
+            || id == virtualBottom
+            || opened[id];
     }
 
     public boolean isFull(int row, int col) {
-        if (row <= 0
-            || row > size
-            || col <= 0
-            || col > size)
-            throw new IllegalArgumentException();
+        checkArgs(row, col);
 
-        int id = (row - 1) * size + (col - 1);
+        int id = toId(row, col);
         return conns.find(id) == conns.find(virtualTop);
     }
 
@@ -136,13 +113,13 @@ public class Percolation {
     public static void main(String[] args) {
         System.out.println("Test 1");
         Percolation p1 = new Percolation(5);
-        for(int i = 1; i <= 5; i++)
+        for (int i = 1; i <= 5; i++)
             p1.open(i, 3);
         System.out.println("Result: " + p1.percolates());
 
         System.out.println("Test 2");
         Percolation p2 = new Percolation(5);
-        for(int i = 1; i <= 4; i++)
+        for (int i = 1; i <= 4; i++)
             p2.open(i, 3);
         System.out.println("Result: " + p2.percolates());
     }
