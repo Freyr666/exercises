@@ -4,59 +4,75 @@ import edu.princeton.cs.algs4.StdRandom;
 
 public class RandomizedQueue<Item> implements Iterable<Item> {
 
-    private Deque<Item> deque;
+    private Item[] array;
+    private int N;
+    
     // construct an empty randomized queue
     public RandomizedQueue() {
-        deque = new Deque<Item>();
+        array = (Item[]) new Object[10];
+        N = 0;
     }
 
     // is the randomized queue empty?
     public boolean isEmpty() {
-        return deque.isEmpty();
+        return N == 0;
     }
 
     // return the number of items on the randomized queue
     public int size() {
-        return deque.size();
+        return N;
+    }
+
+    private void resize(int newSize) {
+        Item[] newArray = (Item[]) new Object[newSize];
+        for (int i = 0; i < N; i++)
+            newArray[i] = array[i];
+        array = newArray;
     }
 
     // add the item
     public void enqueue(Item item) {
-        if (StdRandom.uniform(2) == 0) {
-            deque.addFirst(item);
-        } else {
-            deque.addLast(item);
-        }
+        if (item == null)
+            throw new IllegalArgumentException();
+
+        if (N == array.length)
+            resize(array.length * 2);
+
+        N++;
+        int index = StdRandom.uniform(N);
+        array[N - 1] = array[index];
+        array[index] = item;
     }
 
     // remove and return a random item
     public Item dequeue() {
-        if (StdRandom.uniform(2) == 0) {
-            return deque.removeFirst();
-        } else {
-            return deque.removeLast();
-        }
+        if (isEmpty())
+            throw new NoSuchElementException();
+
+        Item result = array[--N];
+        array[N] = null;
+
+        if (N < array.length / 2)
+            resize(array.length / 2);
+
+        return result;
     }
 
     // return a random item (but do not remove it)
     public Item sample() {
-        Item item = dequeue();
-        enqueue(item);
-        return item;
+        if (isEmpty())
+            throw new NoSuchElementException();
+        
+        return array[StdRandom.uniform(N)];
     }
 
     private final class RandomizedIterator implements Iterator<Item> {
         private Item[] arr;
         private int id;
 
-        public RandomizedIterator(Deque<Item> d) {
-            arr = (Item[]) new Object[d.size()];
-            id = d.size() - 1;
-            
-            for (int i = 0; i < arr.length; i++) {
-                Item el = d.removeFirst();
-                arr[i] = el;
-            }
+        public RandomizedIterator(Item[] a) {
+            arr = a;
+            id = arr.length - 1;
         }
 
         public boolean hasNext() {
@@ -80,16 +96,28 @@ public class RandomizedQueue<Item> implements Iterable<Item> {
         }
     }
 
+    private static void shuffle(Object[] a) {
+        if (a.length < 2)
+            return;
+        
+        for (int i = 1; i < a.length; i++) {
+            int r = StdRandom.uniform(i);
+            Object tmp = a[r];
+            a[r] = a[i];
+            a[i] = tmp;
+        }
+    }
+
     // return an independent iterator over items in random order
     public Iterator<Item> iterator() {
-        Deque<Item> oldDeque = deque;
-        deque = new Deque<Item>();
+        Item[] newArray = (Item[]) new Object[N];
 
-        for (Item el : oldDeque) {
-            enqueue(el);
-        }
+        for (int i = 0; i < N; i++)
+            newArray[i] = array[i];
+
+        shuffle(newArray);
             
-        return new RandomizedIterator(oldDeque);
+        return new RandomizedIterator(newArray);
     }
 
     // unit testing (required)
