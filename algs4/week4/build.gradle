@@ -1,0 +1,13 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'application'
+
+mainClassName = 'HelloWorld'
+
+application {
+    mainClassName = 'FastCollinearPoints'
+}
+
+dependencies {
+    implementation files('vendor/algs4.jar')
+}

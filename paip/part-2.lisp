@@ -1,8 +1,10 @@
+;; *******************************************************
 ;;
 ;; Part II
 ;;
 ;; The General Problem Solver
-;;
+;; *******************************************************
+
 (defun find-all (el list &key (test #'equalp))
   (reverse (reduce (lambda (acc mem)
                      (if (funcall test el mem)
@@ -263,3 +265,156 @@ ___   |   |
             (t
              (for-each '() list)
              result)))))  
+
+;; **********************************************************************
+;;
+;; Eliza
+;;
+;; **********************************************************************
+
+(defpackage :eliza
+  (:use :common-lisp))
+
+(in-package :eliza)
+
+(defun simple-equal (x y)
+  "Are x and y equal?"
+  (if (or (atom x) (atom y))
+      (eql x y)
+      (and (simple-equal (first x) (first y))
+           (simple-equal (rest x) (rest y)))))
+
+(defun variable-p (x)
+  "Is x a variable (a symbol beginning with '?')?"
+  (and (symbolp x)
+       (equal (char (symbol-name x) 0)
+              #\?)))
+
+(defconstant fail nil "Indicates pat-match failure")
+
+(defconstant no-bindings '((t . t))
+  "Indicates pat-match success, with no variables.")
+
+(defun get-binding (var bindings)
+  (assoc var bindings))
+
+(defun binding-val (binding)
+  (cdr binding))
+
+(defun lookup (var bindings)
+  (binding-val (get-binding var bindings)))
+
+(defun extend-bindings (var val bindings)
+  (cons (cons var val)
+        (if (eq bindings no-bindings)
+            nil
+            bindings)))
+
+(defun match-variable (var input bindings)
+  "Does VAR match input? Uses (or updates) and return bindings."
+  (let ((binding (get-binding var bindings)))
+    (cond ((not binding) (extend-bindings var input bindings))
+          ((equal input (binding-val binding)) bindings)
+          (t fail))))
+
+(defun starts-with (list el)
+  (and (consp list) (eql (first list) el)))
+
+(defun segment-pattern-p (pattern)
+  "Is this a segment matching pattern: ((?* var) . pat)"
+  (and (consp pattern)
+       (starts-with (first pattern) '?*)))
+
+(defun segment-match (pattern input bindings &optional (start 0))
+  "Match the segment pattern ((?* var) . pat) against input"
+  (let ((var (second (first pattern)))
+        (pat (rest pattern)))
+    (if (null pat)
+        (match-variable var input bindings)
+        (let ((pos (position (first pat) input
+                             :start start :test #'equal)))
+          (if (null pos)
+              fail
+              (let ((b2 (pat-match
+                         pat (subseq input pos)
+                         (match-variable var (subseq input 0 pos)
+                                         bindings))))
+                (if (eq b2 fail)
+                    (segment-match pattern input bindings (1+ pos))
+                    b2)))))))
+
+(defun pat-match (pattern input &optional (bindings no-bindings))
+  "Does pattern match input?"
+  (cond ((eq bindings fail) fail)
+        ((variable-p pattern)
+         (match-variable pattern input bindings))
+        ((eql pattern input) bindings)
+        ((segment-pattern-p pattern)
+         (segment-match pattern input bindings))
+        ((and (consp pattern) (consp input))
+         (pat-match (rest pattern) (rest input)
+                    (pat-match (first pattern) (first input)
+                               bindings)))
+        (t fail)))
+
+(defun rule-pattern (rule)
+  (first rule))
+
+(defun rule-responses (rule)
+  (rest rule))
+
+(defparameter *eliza-rules*
+  '((((?* ?x) hello (?* ?y))
+     (How do you do. Please state your problem.))
+    (((?* ?x) I want (?* ?y))
+     (What would it mean if you got ?y)
+     (Why do you want ?y)
+     (Suppose you got ?y soon))
+    (((?* ?x) if (?* ?y))
+     (Do you really think its likely that ?y)
+     (Do you with that ?y)
+     (What do you think about ?y)
+     (Really-- if ?y))
+    (((?* ?x) no (?* ?y))
+     (Why not ?)
+     (You are being a bit negative)
+     (Are you saying no just to be negative ?))
+    (((?* ?x) I was (?* ?y))
+     (Were you really ?)
+     (Perhaps I already knew you were ?y)
+     (Why do you tell me you were ?y now ?))
+    (((?* ?x) I feel (?* ?y))
+     (Do you often feel ?y ?))
+    (((?* ?x) I felt (?* ?Y))
+     (What other feelings do you have ?))))
+
+(defun random-elt (list)
+  (let ((len (length list)))
+    (elt list (random len))))
+
+(defun switch-viewpoint (words)
+  (sublis '((I . you) (you . I)
+            (me . you) (am . are))
+          words))
+
+(defun mklist (x)
+  (if (listp x) x (list x)))
+
+(defun flatten (the-list)
+  (apply #'append
+         (mapcar #'mklist the-list)))
+
+(defun use-eliza-rules (input)
+  "Find some rule whith which to transform the input"
+  (some (lambda (rule)
+          (let ((result (pat-match (rule-pattern rule) input)))
+            (when (not (eq result fail))
+              (sublis (switch-viewpoint result)
+                      (random-elt (rule-responses rule))))))
+        *eliza-rules*))
+
+(defun eliza ()
+  "Respond to user input using pattern matching rules"
+  (loop
+    (print 'eliza>)
+    (write (flatten (use-eliza-rules (read))) :pretty t)))
