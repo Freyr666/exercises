@@ -5,7 +5,7 @@ apply plugin: 'application'
 mainClassName = 'HelloWorld'
 
 application {
-    mainClassName = 'FastCollinearPoints'
+    mainClassName = 'Solver'
 }
 
 dependencies {
