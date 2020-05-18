@@ -29,10 +29,9 @@ public class Solver {
     public Solver(Board initial) {
         if (initial == null)
             throw new IllegalArgumentException();
-
-        int moves = 0;
+        
         MinPQ<Node> queue = new MinPQ<Node>();
-        queue.insert(new Node(initial, null, moves));
+        queue.insert(new Node(initial, null, 0));
 
         while (true) {
             node = queue.delMin();
@@ -40,7 +39,7 @@ public class Solver {
             if (node == null || node.board.isGoal())
                 break;
 
-            moves++;
+            int moves = node.moves + 1;
             for (Board neighbour : node.board.neighbors()) {
                 if (node.previous == null
                     || !neighbour.equals(node.previous.board))
