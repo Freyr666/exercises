@@ -1,0 +1,13 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'application'
+
+mainClassName = 'hello.HelloWorld'
+
+application {
+    mainClassName = 'RangeSearchVisualizer'
+}
+
+dependencies {
+    implementation files('vendor/algs4.jar')
+}
