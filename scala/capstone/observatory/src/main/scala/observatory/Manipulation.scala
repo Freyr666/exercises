@@ -11,7 +11,19 @@ object Manipulation extends ManipulationInterface {
     *         returns the predicted temperature at this location
     */
   def makeGrid(temperatures: Iterable[(Location, Temperature)]): GridLocation => Temperature = {
-    ???
+    val m = new collection.mutable.HashMap[GridLocation, Temperature]
+
+    { loc =>
+      m.get(loc) match {
+        case Some(v) => v
+        case None => {
+          val pred = Visualization.predictTemperature(temperatures, loc.location)
+          m(loc) = pred
+          pred
+        }
+      }
+
+    }
   }
 
   /**
@@ -20,7 +32,19 @@ object Manipulation extends ManipulationInterface {
     * @return A function that, given a latitude and a longitude, returns the average temperature at this location
     */
   def average(temperaturess: Iterable[Iterable[(Location, Temperature)]]): GridLocation => Temperature = {
-    ???
+    val m = new collection.mutable.HashMap[GridLocation, Temperature]{}
+    val grids: Seq[GridLocation => Temperature] = temperaturess.map(makeGrid(_)).toSeq
+
+    { loc =>
+      m.get(loc) match {
+        case Some(v) => v
+        case None => {
+          val avg = grids.map(f => f(loc)).sum / grids.length
+          m(loc) = avg
+          avg
+        }
+      }
+    }
   }
 
   /**
@@ -29,7 +53,9 @@ object Manipulation extends ManipulationInterface {
     * @return A grid containing the deviations compared to the normal temperatures
     */
   def deviation(temperatures: Iterable[(Location, Temperature)], normals: GridLocation => Temperature): GridLocation => Temperature = {
-    ???
+    val grid = makeGrid(temperatures)
+
+    loc => grid(loc) - normals(loc)
   }
 
 
