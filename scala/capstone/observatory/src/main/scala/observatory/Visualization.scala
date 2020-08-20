@@ -7,7 +7,7 @@ import com.sksamuel.scrimage.{Image, Pixel}
   */
 object Visualization extends VisualizationInterface {
 
-  val P = 2
+  val P = 6
   /**
     * @param temperatures Known temperatures: pairs containing a location and the temperature at this location
     * @param location Location where to predict the temperature
