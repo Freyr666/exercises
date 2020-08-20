@@ -29,8 +29,8 @@ object Interaction extends InteractionInterface {
   def tile(temperatures: Iterable[(Location, Temperature)], colors: Iterable[(Temperature, Color)], tile: Tile): Image = {
     val (width, height) = (256, 256)
     val cols = for {
-      yOff <- 0 until width
-      xOff <- 0 until height
+      yOff <- 0 until height
+      xOff <- 0 until width
       subtile = tile.subtile(xOff, yOff, 8)
       location = tileLocation(subtile)
       temp = Visualization.predictTemperature(temperatures, location)
@@ -65,6 +65,7 @@ object Interaction extends InteractionInterface {
       .par
       .foreach { case (zoom, x, y) =>
         val tile = Tile(x, y, zoom)
+        println(s"Processing $tile")
         yearlyData.foreach(p => generateImage(p._1, tile, p._2))
       }
   }
