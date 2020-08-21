@@ -69,7 +69,7 @@ object Interaction2 extends Interaction2Interface {
     * @return The caption to show
     */
   def caption(selectedLayer: Signal[Layer], selectedYear: Signal[Year]): Signal[String] = {
-    Signal(selectedLayer().layerName.id + " (" + selectedYear() + ")")
+    Signal(selectedLayer().layerName.id.capitalize + " (" + selectedYear() + ")")
   }
 
 }
