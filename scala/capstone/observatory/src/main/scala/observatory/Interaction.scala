@@ -16,7 +16,6 @@ object Interaction extends InteractionInterface {
     val lon = (tile.x / z) * 360 - 180
     val latRad = math.atan(math.sinh(math.Pi * (1 - 2 * tile.y / z)))
     val lat = math.toDegrees(latRad)
-    println(s"Evaluating location for tile $tile: $lat, $lon")
     Location(lat, lon)
   }
 

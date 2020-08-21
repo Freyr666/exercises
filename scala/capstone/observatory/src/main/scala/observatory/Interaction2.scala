@@ -5,19 +5,37 @@ package observatory
   */
 object Interaction2 extends Interaction2Interface {
 
+  private val annualScale: List[(Temperature, observatory.Color)] = List(
+    (60, observatory.Color(255, 255, 255)),
+    (32, observatory.Color(255, 0, 0)),
+    (12, observatory.Color(255, 255, 0)),
+    (0, observatory.Color(0, 255, 255)),
+    (-15, observatory.Color(0, 0, 255)),
+    (-27, observatory.Color(255, 0, 255)),
+    (-50, observatory.Color(33, 0, 107)),
+    (-60, observatory.Color(0, 0, 0)))
+
+  private val deviationScale: List[(Temperature, observatory.Color)] = List(
+    (7, observatory.Color(0,0,0)),
+    (4, observatory.Color(255,0,0)),
+    (2, observatory.Color(255,255,0)),
+    (0, observatory.Color(255,255,255)),
+    (-2, observatory.Color(0,255,255)),
+    (-7, observatory.Color(0,0,255)))
   /**
     * @return The available layers of the application
     */
-  def availableLayers: Seq[Layer] = {
-    ???
-  }
+  def availableLayers: Seq[Layer] =
+    Seq(
+      Layer(LayerName.Temperatures, annualScale, Range(1975, 2016)),
+      Layer(LayerName.Deviations, deviationScale, Range(1991, 2016)))
 
   /**
     * @param selectedLayer A signal carrying the layer selected by the user
     * @return A signal containing the year bounds corresponding to the selected layer
     */
   def yearBounds(selectedLayer: Signal[Layer]): Signal[Range] = {
-    ???
+    Signal(selectedLayer().bounds)
   }
 
   /**
@@ -29,7 +47,11 @@ object Interaction2 extends Interaction2Interface {
     *         in the `selectedLayer` bounds.
     */
   def yearSelection(selectedLayer: Signal[Layer], sliderValue: Signal[Year]): Signal[Year] = {
-    ???
+    Signal(
+      if (selectedLayer().bounds.contains(sliderValue()))
+        sliderValue()
+      else
+        selectedLayer().bounds.head)
   }
 
   /**
@@ -38,7 +60,7 @@ object Interaction2 extends Interaction2Interface {
     * @return The URL pattern to retrieve tiles
     */
   def layerUrlPattern(selectedLayer: Signal[Layer], selectedYear: Signal[Year]): Signal[String] = {
-    ???
+    Signal("target/" + selectedLayer().layerName.id + "/" + selectedYear() + "/{z}/{x}-{y}.png")
   }
 
   /**
@@ -47,7 +69,7 @@ object Interaction2 extends Interaction2Interface {
     * @return The caption to show
     */
   def caption(selectedLayer: Signal[Layer], selectedYear: Signal[Year]): Signal[String] = {
-    ???
+    Signal(selectedLayer().layerName.id + " (" + selectedYear() + ")")
   }
 
 }

@@ -24,8 +24,8 @@ object Main extends App {
     println("Extracting data for years 1975 - 1990")
     val data = for {
       year <- 1975 to 1990
-      temps = Extraction.locateTemperatures(year, "/stations.csv", s"/$year.csv")
-      avg = Extraction.locationYearlyAverageRecords(temps)
+      //temps = Extraction.locateTemperatures(year, "/stations.csv", s"/$year.csv")
+      avg = Extraction.locationYearlyAverageRecords(Extraction.locateTemperatures(year, "/stations.csv", s"/$year.csv"))
     } yield(avg)
     println("Extraction complete!")
 
@@ -36,9 +36,9 @@ object Main extends App {
     println("Extracting data for years 1991 - 2015")
     val yearlyData: Iterable[(Year, Iterable[(Location, Temperature)])] =
       for {
-        year <- 1991 to 1991 //2015
-        temps = Extraction.locateTemperatures(year, "/stations.csv", s"/$year.csv")
-        avg = Extraction.locationYearlyAverageRecords(temps)
+        year <- 1991 to 2015
+        //temps = Extraction.locateTemperatures(year, "/stations.csv", s"/$year.csv")
+        avg = Extraction.locationYearlyAverageRecords(Extraction.locateTemperatures(year, "/stations.csv", s"/$year.csv"))
       } yield((year, avg))
     println("Extraction complete")
 

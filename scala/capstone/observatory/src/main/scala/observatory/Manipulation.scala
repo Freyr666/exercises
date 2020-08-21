@@ -11,7 +11,7 @@ object Manipulation extends ManipulationInterface {
     *         returns the predicted temperature at this location
     */
   def makeGrid(temperatures: Iterable[(Location, Temperature)]): GridLocation => Temperature = {
-    val m = new collection.mutable.HashMap[GridLocation, Temperature]
+    val m = new collection.concurrent.TrieMap[GridLocation, Temperature] //new collection.mutable.HashMap[GridLocation, Temperature]
 
     { loc =>
       m.get(loc) match {
@@ -32,14 +32,14 @@ object Manipulation extends ManipulationInterface {
     * @return A function that, given a latitude and a longitude, returns the average temperature at this location
     */
   def average(temperaturess: Iterable[Iterable[(Location, Temperature)]]): GridLocation => Temperature = {
-    val m = new collection.mutable.HashMap[GridLocation, Temperature]{}
-    val grids: Seq[GridLocation => Temperature] = temperaturess.map(makeGrid(_)).toSeq
+    val m = new collection.concurrent.TrieMap[GridLocation, Temperature]
+    val grids: Iterable[GridLocation => Temperature] = temperaturess.map(makeGrid(_))
 
     { loc =>
       m.get(loc) match {
         case Some(v) => v
         case None => {
-          val avg = grids.map(f => f(loc)).sum / grids.length
+          val avg = grids.map(f => f(loc)).sum / grids.size
           m(loc) = avg
           avg
         }
