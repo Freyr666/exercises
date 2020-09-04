@@ -1,0 +1,4 @@
+(library
+  (name hal)
+  (wrapped false)
+  (libraries util))

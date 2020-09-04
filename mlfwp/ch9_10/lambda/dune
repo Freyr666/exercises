@@ -1,0 +1,3 @@
+(executable
+  (name lambda)
+  (libraries util))
