@@ -22,15 +22,7 @@ public class KdTree {
         }
 
         private void insert(Point2D p) {
-            if (p.x() < point.x()) {
-                if (left == null)
-                    left = new HNode(p, new RectHV(area.xmin(),
-                                                   area.ymin(),
-                                                   point.x(),
-                                                   area.ymax()));
-                else
-                    left.insert(p);
-            } else {
+            if (p.x() > point.x()) {
                 if (right == null)
                     right = new HNode(p, new RectHV(point.x(),
                                                     area.ymin(),
@@ -38,6 +30,14 @@ public class KdTree {
                                                     area.ymax()));
                 else
                     right.insert(p);
+            } else {
+                if (left == null)
+                    left = new HNode(p, new RectHV(area.xmin(),
+                                                   area.ymin(),
+                                                   point.x(),
+                                                   area.ymax()));
+                else
+                    left.insert(p);
             }
         }
 
@@ -53,10 +53,10 @@ public class KdTree {
         private boolean contains(Point2D p) {
             if (p.equals(point))
                 return true;
-            else if (p.x() < point.x() && left != null)
-                return left.contains(p);
-            else if (p.x() >= point.x() && right != null)
+            else if (p.x() > point.x() && right != null)
                 return right.contains(p);
+            else if (left != null)
+                return left.contains(p);
             else
                 return false;
         }
@@ -172,10 +172,10 @@ public class KdTree {
         private boolean contains(Point2D p) {
             if (p.equals(point))
                 return true;
-            else if (p.y() >= point.y() && top != null)
-                return top.contains(p);
             else if (p.y() < point.y() && bottom != null)
                 return bottom.contains(p);
+            else if (top != null)
+                return top.contains(p);
             else
                 return false;
         }
@@ -237,6 +237,7 @@ public class KdTree {
     }
     
     private VNode root = null;
+    private int size = 0;
     
     // construct an empty set of points 
     public KdTree() {
@@ -250,10 +251,7 @@ public class KdTree {
 
     // number of points in the set 
     public int size() {
-        if (root == null)
-            return 0;
-        else
-            return root.size();
+        return size;
     }
 
     // add the point to the set (if it is not already in the set)
@@ -265,6 +263,7 @@ public class KdTree {
             root = new VNode(p);
         else
             root.insert(p);
+        size++;
     }
 
     // does the set contain point p? 

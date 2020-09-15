@@ -5,7 +5,7 @@ apply plugin: 'application'
 mainClassName = 'hello.HelloWorld'
 
 application {
-    mainClassName = 'RangeSearchVisualizer'
+    mainClassName = 'KdTreeVisualizer'
 }
 
 dependencies {
