@@ -42,68 +42,34 @@ public class BaseballElimination {
     }
 
     private void nontrivialElimination(int id) {
-        int total = (teams - 1) * (teams - 2) + (teams - 1) + 2;
+        int total = teams * (teams + 1) + teams + 2;
         int s = total - 2;
         int t = total - 1;
 
         double fullCapacity = 0;
-        FlowNetwork fn = new FlowNetwork(netSize);
-        
+        FlowNetwork fn = new FlowNetwork(total);
+
+        int gId = teams;
         for (int i = 0; i < teams; i++) {
             if (i == id) continue;
             
             double sinkCap = Math.max(0, w[id] + r[id] - w[i]);
 
-            int iId = i < id ? i : i - 1;
-            fn.addEdge(new FlowEdge(iId, t, sinkCap));
+            fn.addEdge(new FlowEdge(i, t, sinkCap));
             
-            for (int j = i + 1, gId = teams; j < teams; j++, gId++) {
+            for (int j = i + 1; j < teams; j++, gId++) {
                 if (j == id) continue;
                 
                 double cap = g[i][j];
-                int jId = j < id ? j : j - 1;
                 
                 fn.addEdge(new FlowEdge(s, gId, cap));
-                fn.addEdge(new FlowEdge(gId, iId, Double.POSITIVE_INFINITY));
-                fn.addEdge(new FlowEdge(gId, jId, Double.POSITIVE_INFINITY));
+                fn.addEdge(new FlowEdge(gId, i, Double.POSITIVE_INFINITY));
+                fn.addEdge(new FlowEdge(gId, j, Double.POSITIVE_INFINITY));
 
                 fullCapacity += cap;
             }
         }
         FordFulkerson ff = new FordFulkerson(fn, s, t);
-        /*
-        HashSet<String> set = new HashSet<>();
-        for (int i = 0; i < teams; i++) {
-            if (i == id) continue;
-
-            if (ff.inCut(i)) {
-                set.add(name[i]);
-            }
-        }
-        if (! set.isEmpty()) {
-            isEliminated[id] = true;
-            eliminatedBy.add(id, set);
-        }
-        return;
-        */
-        /*
-        for (FlowEdge edge : fn.adj(s)) {
-            
-            if (edge.flow() != edge.capacity()) {
-                isEliminated[id] = true;
-                //HashSet<String> set = new HashSet<>();
-                for (int i = 0; i < teams; i++) {
-                    if (i == id) continue;
-
-                    if (ff.inCut(i)) set.add(name[i]);
-                }
-                eliminatedBy.add(id, set);
-                return;
-            }
-            
-        }
-        */
-        StdOut.println(name[id] + " fullCapacity " + fullCapacity + " value " + ff.value());
         if (ff.value() < fullCapacity) { // Eliminated
             isEliminated[id] = true;
             HashSet<String> set = new HashSet<>();
