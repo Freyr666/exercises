@@ -1,7 +1,17 @@
 package example
 
-object Hello extends Greeting with App {
+object Hello extends Greeting with Rexp with App {
+  testRegex()
   println(greeting)
+}
+
+trait Rexp {
+  import regex.Regex
+
+  def testRegex() {
+    val r = Regex("((A*B|AC)*D)")
+    println("Regex(\"((A*B|AC)*D)\").matches(\"AAAABACD\") = " + r.matches("AAAABACD"))
+  }
 }
 
 trait Greeting {
