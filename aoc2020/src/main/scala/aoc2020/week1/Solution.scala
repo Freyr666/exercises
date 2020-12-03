@@ -23,7 +23,7 @@ object Solution extends IOApp {
 
   def sumOfTwo(a: Array[Int]): Option[(Int, Int)] = {
     val table = new Table
-scanf
+
     a.find { x =>
       if (table.exists(2020 - x)) true
       else {
