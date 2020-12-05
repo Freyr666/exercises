@@ -1,4 +1,4 @@
-package aoc2020.week1
+package aoc2020.day1
 
 import cats.effect._
 import scala.collection.mutable.Stack

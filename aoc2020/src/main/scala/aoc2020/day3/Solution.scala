@@ -1,4 +1,4 @@
-package aoc2020.week3
+package aoc2020.day3
 
 import cats.effect._
 import scala.io.Source
