@@ -2,7 +2,6 @@ package aoc2020.day7
 
 import aoc2020.utils._
 import scala.collection.mutable.HashMap
-import java.util.Hashtable
 
 object Solution {
 
