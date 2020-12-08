@@ -8,6 +8,15 @@ package object utils {
   def source(f: String): Resource[IO, Source] =
     Resource.fromAutoCloseable(IO(Source.fromFile(f)))
 
+  def getLines[B](file: String, f: Iterator[String]=>B): B = {
+    val src = Source.fromFile(file)
+    try {
+      f(src.getLines())
+    } finally {
+      src.close()
+    }
+  }
+
   def splitLines(it: Iterator[String]): List[List[String]] = {
     val (result, last) =
       it.foldLeft[(List[List[String]], List[String])]((Nil, Nil)) {
