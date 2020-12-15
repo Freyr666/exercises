@@ -122,6 +122,7 @@ object Solution {
           case (b, '0') => b
           case (_, '1') => '1'
           case (_, 'X') => 'X'
+          case _ => ???
         }
     }
 
