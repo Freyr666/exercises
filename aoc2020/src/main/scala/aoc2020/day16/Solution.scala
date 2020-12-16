@@ -101,19 +101,17 @@ object Solution {
         })
       }
 
-    val named =
+    val namedVals =
       removeRedundant(narrowConstr(my.map(_ => constr), proper))
         .zip(my)
         .toMap
-
-    println(named)
 
     val departureNames = constr.flatMap { c =>
       if (c.name.matches("departure.*")) Some(c.name)
       else None
     }
 
-    departureNames.map(named(_)).foldLeft(1L)(_ * _)
+    departureNames.map(namedVals(_)).foldLeft(1L)(_ * _)
   }
 
   def main(args: Array[String]) = {
