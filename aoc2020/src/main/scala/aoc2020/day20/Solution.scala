@@ -10,6 +10,12 @@ object Solution {
   final case object Top extends Side
   final case object Bottom extends Side
 
+  /*
+   *  Represents tile borders, also
+   *  contains a list of all applied transformations
+   *  (rotations and flips) so that we could apply them
+   *  later to the raw tile data
+   */
   final case class MapTile(
     val id: Int,
     val top: String,
@@ -79,13 +85,17 @@ object Solution {
     }
   }
 
+  /*
+   * Result of gluing the map pieces together,
+   * the whole map.
+   */
   final case class MegaTile(data: Vector[Vector[Char]]) {
     override def toString(): String =
       data
         .map(_.mkString)
         .mkString("\n")
 
-    def conv(pat: Vector[Vector[Char]]): Int = {
+    def convolution(pat: Vector[Vector[Char]]): Int = {
       require(pat.length > 0)
       require(pat(0).length > 0)
       require(pat.forall(_.length == pat(0).length))
@@ -133,6 +143,11 @@ object Solution {
 
   }
 
+  /*
+   * Grid of separate map tiles, also containing the unused tile.
+   * Each call of addMatches constructs a new Grid by fitting one
+   * of the unused pieces in its place.
+   */
   final case class Grid(grid: Map[(Int, Int), MapTile], unused: List[MapTile]) {
 
     lazy val xRange: Range = {
@@ -272,7 +287,7 @@ object Solution {
     val pat = monsterPattern.map(_.toVector)
     val map = grid.megaTile(raw)
     println("Count non monster #'s " +
-      map.conv(pat)
+      map.convolution(pat)
     )
   }
 
