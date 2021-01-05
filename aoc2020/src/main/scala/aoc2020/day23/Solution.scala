@@ -1,7 +1,7 @@
 package aoc2020.day23
 
 import collection.mutable.HashMap
-//import cats.effect._
+import cats.effect._
 import aoc2020.utils._
 
 object Solution {
@@ -13,7 +13,7 @@ object Solution {
   ) {
     import Ring._
 
-    def shiftLeft: Unit = {
+    def shiftLeft: IO[Unit] = IO{
       first = first.tail.get
     }
 
@@ -24,7 +24,7 @@ object Solution {
       collect(first.tail.get, List(first.head))
     }
 
-    def removeSubRing(len: Int): SubRing = {
+    def removeSubRing(len: Int): IO[SubRing] = IO{
       require(len > 0)
 
       def lastNode(node: Node, len: Int): Node =
@@ -45,9 +45,9 @@ object Solution {
       node
     }
 
-    def current: Int = first.head
+    def current: IO[Int] = IO(first.head)
 
-    def insertAfter(elem: Int, sub: SubRing): Unit = {
+    def insertAfter(elem: Int, sub: SubRing): IO[Unit] = IO{
 
       def findNode(elem: Int): Node =
         table.get(elem) match {
@@ -78,7 +78,7 @@ object Solution {
       last.tail = nextAfter
     }
 
-    def collectAfter(elem: Int, len: Int): List[Int] = {
+    def collectAfter(elem: Int, len: Int): IO[List[Int]] = IO{
       def takeN(node: Node, len: Int, acc: List[Int]): List[Int] =
         if (len == 0) acc.reverse
         else takeN(node.tail.get, len-1, node.head::acc)
@@ -95,7 +95,7 @@ object Solution {
 
     type SubRing = Node
 
-    def apply(init: Seq[Int]): Ring = {
+    def apply(init: Seq[Int]): IO[Ring] = IO{
       require(! init.isEmpty)
 
       val table = new HashMap[Int, Node]
@@ -112,21 +112,23 @@ object Solution {
     }
   }
 
-  def simpleRotationRing(cups: Vector[Int], cupsToCollect: Int, rotations: Int): List[Int] = {
-    def loop(cups: Ring, step: Int): Unit =
-      if (step == 0) ()
-      else {
-        val sub = cups.removeSubRing(3)
-        cups.insertAfter(cups.current-1, sub)
-        cups.shiftLeft
+  def simpleRotationRing(cups: Vector[Int], cupsToCollect: Int, rotations: Int): IO[List[Int]] = {
+    def loop(cups: Ring, step: Int): IO[Unit] =
+      if (step == 0) IO(())
+      else (for {
+        sub <- cups.removeSubRing(3)
+        cur <- cups.current
+        _   <- cups.insertAfter(cur-1, sub)
+        _   <- cups.shiftLeft
+      } yield ()).flatMap { _ =>
         loop(cups, step-1)
       }
 
-    //for {
-    val ring = Ring(cups)
-    loop(ring, rotations)
-    ring.collectAfter(1, cupsToCollect)
-    //} yield res
+    for {
+      ring <- Ring(cups)
+      _    <- loop(ring, rotations)
+      res  <- ring.collectAfter(1, cupsToCollect)
+    } yield res
 
   }
 
@@ -175,6 +177,10 @@ object Solution {
 
     // Task II
     val allCups = generateCups(cups)
+    val List(a, b) = simpleRotationRing(allCups, 2, 10000000).unsafeRunSync()
+    println("Product of two cups after 1 is " +
+      (a.toLong * b.toLong)
+    ) 
 
   }
 
