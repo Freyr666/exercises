@@ -34,7 +34,7 @@ object Chapter6 {
       2.0 * (d + h)
   }
 
-  class Sqyare(side: Double) extends Rect(side, side)
+  class Square(side: Double) extends Rect(side, side)
 
   // a + a = 2 * a
 
